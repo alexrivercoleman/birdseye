@@ -57,7 +57,7 @@ Auth: email + password with **Confirm email turned off** (Authentication → Sig
 ### Deploy
 - **Web:** Vercel project `birdseye` (https://birdseye-pi.vercel.app), root directory `web/`, env vars from
   `web/.env.example`. **Every push to `main` deploys automatically.** `/api/*` is rewritten to the API in `web/vercel.json`.
-- **API:** Vultr VPS: `docker compose up -d --build` with `api/.env` filled in and `API_DOMAIN` set (an `sslip.io` hostname works).
+- **API:** Vultr VPS: `docker compose up -d --build` with `api/.env` filled in and `API_DOMAIN` set (currently `api.birdseyeapp.tech` → 45.32.218.147; an `sslip.io` hostname also works).
 
 ## Credits
 Audio fixture licenses: see [scripts/fixtures/README.md](scripts/fixtures/README.md).

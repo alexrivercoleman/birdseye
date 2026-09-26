@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://api.45-32-218-147.sslip.io/:path*" },
+    { "source": "/api/:path*", "destination": "https://api.birdseyeapp.tech/:path*" },
     { "source": "/((?!assets/|sw.js|workbox-|manifest.webmanifest|registerSW.js|icon).*)", "destination": "/index.html" }
   ]
 }
