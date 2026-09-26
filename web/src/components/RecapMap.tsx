@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useEffect, useRef } from 'react'
 import type { Recap } from '../api/types'
+import { MAP_STYLE_URL } from '../lib/mapStyle'
 import { TIER_COLORS } from './TierBadge'
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
@@ -21,7 +22,7 @@ export function RecapMap({ recap, onPinClick }: { recap: Recap; onPinClick: (spe
     const bounds = coords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds(coords[0], coords[0]))
     const map = new mapboxgl.Map({
       container: ref.current,
-      style: 'mapbox://styles/mapbox/outdoors-v12',
+      style: MAP_STYLE_URL,
       bounds,
       fitBoundsOptions: { padding: 40, maxZoom: 16 },
     })

@@ -7,6 +7,7 @@ import mapboxgl, { type ExpressionSpecification, type GeoJSONSource } from 'mapb
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { api, USE_MOCKS } from '../api/client'
+import { MAP_STYLE_URL } from '../lib/mapStyle'
 import { withSamples } from '../api/sampleMap'
 import type { CommunityMap as MapData, LatLng, TrailSpecies } from '../api/types'
 import { TierBadge } from './TierBadge'
@@ -47,7 +48,7 @@ export default function CommunityMap() {
   useEffect(() => {
     if (!token || !container.current) return
     mapboxgl.accessToken = token
-    const map = new mapboxgl.Map({ container: container.current, style: 'mapbox://styles/mapbox/outdoors-v12', center: START, zoom: 13.5 })
+    const map = new mapboxgl.Map({ container: container.current, style: MAP_STYLE_URL, center: START, zoom: 13.5 })
     mapRef.current = map
     const geolocate = new mapboxgl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },

@@ -4,12 +4,12 @@
 // server-generated static map (§7 step 10). Falls back to the plain SVG sketch with no token or if the image fails.
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { LatLng, Tier } from '../api/types'
+import { MAP_STYLE } from '../lib/mapStyle'
 import { RouteSketch } from './RouteSketch'
 import { TIER_COLORS } from './TierBadge'
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
-const STYLE = 'mapbox/outdoors-v12' // all of these match RecapMap
-const HEIGHT = 288 // h-72
+const HEIGHT = 288 // h-72; this and the rest match RecapMap
 const PADDING = 40
 const MAX_ZOOM = 16
 const TILE = 512 // Mapbox GL and the Static Images API both use 512px tiles, so zooms line up
@@ -37,7 +37,7 @@ export function StaticRouteMap({ route, pins }: { route: [number, number][]; pin
       {view && (
         <>
           <img
-            src={`https://api.mapbox.com/styles/v1/${STYLE}/static/${view.lng.toFixed(6)},${view.lat.toFixed(6)},${view.zoom}/${width}x${HEIGHT}@2x?access_token=${token}`}
+            src={`https://api.mapbox.com/styles/v1/${MAP_STYLE}/static/${view.lng.toFixed(6)},${view.lat.toFixed(6)},${view.zoom}/${width}x${HEIGHT}@2x?access_token=${token}`}
             alt="Walk route"
             loading="lazy"
             onError={() => setFailed(true)}
