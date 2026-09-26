@@ -2,8 +2,8 @@
 
 precise (owner or mutual follow): route, per-species/photo locations, static map.
 otherwise: public_area_label only. Clips, spectrograms and photos carry no location, so everyone gets them.
-summary=True drops clip/spectrogram URLs and photos beyond the first 3, and thins the route to at most
-SUMMARY_ROUTE_POINTS points (feed cards draw it as a sketch; see docs/CONTRACT_CHANGES.md).
+summary=True drops spectrogram URLs and photos beyond the first 3, and thins the route to at most
+SUMMARY_ROUTE_POINTS points (feed cards draw it as a sketch and play clips inline; see docs/CONTRACT_CHANGES.md).
 """
 
 import psycopg
@@ -65,7 +65,7 @@ def build_recap(conn: psycopg.Connection, walk_id: str, viewer_id: str, summary:
             route = [route[round(i * step)] for i in range(SUMMARY_ROUTE_POINTS)]
 
     photo_urls = storage.signed_urls("photos", [p["storage_path"] for p in photos] + [r["photo_path"] for r in species])
-    clip_urls = {} if summary else storage.signed_urls("clips", [r["clip_path"] for r in species])
+    clip_urls = storage.signed_urls("clips", [r["clip_path"] for r in species])
     spec_urls = {} if summary else storage.signed_urls("spectrograms", [r["spectrogram_path"] for r in species])
     static_map_url = storage.signed_url("static-maps", w["static_map_path"]) if precise else None
 

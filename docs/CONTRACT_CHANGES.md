@@ -16,6 +16,20 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — Bird call clips, and clip_url on feed cards (A, in B's and C's areas)
+- What changed:
+  - §7.3 (B): `app/audio/clips.py` now exists, so the finish pipeline's clip step (step 5) runs. `render_clip` cuts
+    [detected_at − 1 s, detected_at + 3 s + 1 s] out of the best detection's chunk (clamped to the chunk, ~5 s),
+    encodes mono AAC `.m4a`, uploads to `clips/{walk_id}/{detection_id}.m4a` and returns `(clip_path, None)`:
+    no spectrograms yet. If the chunk WAV is gone (API restart, backfill) it uses the archived original in
+    `audio-chunks`. `python -m app.audio.clips` backfills heard species without a clip (run once: 60 clips).
+    New helper `storage.download(bucket, path)`.
+  - §6 (C): `RecapSummary` (`GET /feed`, profile `recent_walks`) keeps `species[].clip_url`; only
+    `spectrogram_url` is still dropped. Feed cards show a play button per bird.
+- Why: product ask: hear each bird's call right on the feed after a walk ends.
+- Who needs to update what: B, spectrograms can slot into `render_clip`'s second return value; replace or restyle
+  freely. Redeploy the API (the Docker image already has ffmpeg).
+
 ## 2026-09-26 — No more once-per-day scoring limit (C, Alexandros)
 - What changed: §7.5. A species now scores on every walk, even if the user already scored it earlier that day
   (was: each (user, species, heard/photographed) paid at most once per local day, later walks showed `points: 0`).

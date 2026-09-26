@@ -234,7 +234,7 @@ Waits for pending chunks/photos (poll DB up to ~60 s), then runs the finish pipe
 ### Social
 
 `GET /feed?cursor=` → `{ items: [RecapSummary], next_cursor }`
-Every user's completed walks plus the viewer's own still-processing walks, newest first by `ended_at` (page size 10). `RecapSummary` = recap without `species[].clip_url/spectrogram_url` and `photos` beyond the first 3; `route` is thinned to ≤ 80 points; `route` and `static_map_url` only if precise. *(Changed 2026-09-26 from "people the viewer follows plus own" and "no route", see docs/CONTRACT_CHANGES.md.)*
+Every user's completed walks plus the viewer's own still-processing walks, newest first by `ended_at` (page size 10). `RecapSummary` = recap without `species[].spectrogram_url` and `photos` beyond the first 3; `route` is thinned to ≤ 80 points; `route` and `static_map_url` only if precise. *(Changed 2026-09-26 from "people the viewer follows plus own" and "no route", and to keep `clip_url` so feed cards play calls inline; see docs/CONTRACT_CHANGES.md.)*
 
 `GET /users/{username}` → `{ user: UserRef, bio, walk_count, life_list_count, follower_count, following_count, is_following, is_friend, recent_walks: [RecapSummary] }` (up to 10 walks, same rule as the feed; 404 if unknown). *(Shape pinned 2026-09-26.)*
 
@@ -311,7 +311,7 @@ Thresholds (`MIN_CONF=0.6`, `ANOMALY_CONF=0.85`) live in config.
 ### 7.3 Clips + annotated spectrograms — Workstream B
 
 At walk finish, for each `walk_species` row with `heard = true`, using its **best** (highest-confidence) detection:
-- Cut `[start − 1 s, end + 1 s]` from the chunk WAV. Encode to `.m4a` (AAC) for iOS playback. Upload to `clips/`.
+- Cut `[start − 1 s, end + 1 s]` from the chunk WAV. Encode to `.m4a` (AAC) for iOS playback. Upload to `clips/`. *(Implemented 2026-09-26 in `api/app/audio/clips.py`, audio only; falls back to the archived chunk in `audio-chunks` when the WAV is gone. Spectrograms still TODO.)*
 - Render a mel spectrogram PNG (librosa + matplotlib, ~800×300, dark background, no axes clutter; a time axis in seconds is fine). Draw a highlighted rectangle over the 3 s detection window and a label: `Carolina Wren · 93%`. Upload to `spectrograms/`.
 - In the recap, the spectrogram sits next to a play button; while the clip plays, animate a playhead across the image (Workstream A).
 
