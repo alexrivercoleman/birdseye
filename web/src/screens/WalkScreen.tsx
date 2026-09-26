@@ -64,9 +64,6 @@ function IdleWalk({ onStart }: { onStart: (w: ActiveWalk) => void }) {
         >
           {busy ? 'Starting…' : 'Start Walk'}
         </button>
-        <p className="max-w-xs rounded-full bg-paper/90 px-3 py-1 text-[11px] text-bark/70 shadow-sm">
-          Keep Birdseye open while you walk: iPhones pause the mic when the screen locks.
-        </p>
       </div>
     </div>
   )
