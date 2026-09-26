@@ -341,7 +341,7 @@ If eBird is unreachable, default everything to `common` and log. Never block a w
 *(Was 10 / 25 / 75; changed 2026-09-26, see docs/CONTRACT_CHANGES.md.)*
 
 - Heard and photographed are scored **independently**, so a species both heard and photographed on a walk earns double.
-- Each (user, species, heard/photographed) earns points **at most once per calendar day** (prevents farming via many tiny walks). It still appears in the recap with `points: 0`.
+- Every walk scores every species it has, even if the user already scored that species earlier the same day. *(The once-per-day limit was removed 2026-09-26, see docs/CONTRACT_CHANGES.md.)*
 - **Anomalies earn 0 points unless photo-confirmed** (vision ID matches the anomalous species). Confirmed anomalies earn the rare amount plus a `anomaly_confirmed` bonus of 100.
 - Bounty claim: +50. Quest: its `reward_points`, paid when the user claims it.
 - Every award is a row in `points_ledger`; `walks.points` is the sum for that walk.

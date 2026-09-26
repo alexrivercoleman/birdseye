@@ -1,11 +1,10 @@
 """Scoring (§7.5).
 
-Each walk_species row can earn species_heard and species_photographed independently. Each
-(user, species, reason) pays at most once per local calendar day; later walks show points 0.
+Each walk_species row can earn species_heard and species_photographed independently, on every walk (there is no
+once-per-day limit; removed 2026-09-26, see docs/CONTRACT_CHANGES.md).
 Anomalies pay nothing unless photo-confirmed, then rare amounts + an anomaly_confirmed bonus.
 
 Ledger ref_id: species_heard → best detection id; species_photographed / anomaly_confirmed → photo id.
-That's how the once-per-day check recovers the species from earlier walks' ledger rows.
 """
 
 from dataclasses import dataclass
@@ -39,8 +38,7 @@ class Award:
     ref_id: str | None
 
 
-def score_species(species: list[ScoredSpecies], already_awarded: set[tuple[str, str]]) -> list[Award]:
-    """already_awarded: {(species_code, reason)} paid out on the user's other walks the same day."""
+def score_species(species: list[ScoredSpecies]) -> list[Award]:
     awards = []
     for sp in species:
         if sp.is_anomaly and not sp.photographed:
@@ -53,9 +51,7 @@ def score_species(species: list[ScoredSpecies], already_awarded: set[tuple[str, 
             candidates.append(("species_photographed", amount, sp.photo_id))
         if sp.is_anomaly:
             candidates.append(("anomaly_confirmed", ANOMALY_BONUS, sp.photo_id))
-        for reason, amt, ref in candidates:
-            if (sp.species_code, reason) not in already_awarded:
-                awards.append(Award(sp.species_code, reason, amt, ref))
+        awards.extend(Award(sp.species_code, reason, amt, ref) for reason, amt, ref in candidates)
     return awards
 
 
@@ -72,29 +68,6 @@ def apply_walk_scores(conn: psycopg.Connection, walk: dict, centroid: tuple[floa
     """Recompute this walk's species ledger rows and walk_species.points. Idempotent.
     walk: row with id, user_id, started_at. centroid: (lng, lat) or None."""
     lng = centroid[0] if centroid else None
-    day_start, day_end = local_day_bounds(walk["started_at"], lng)
-    already = {
-        (r["species_code"], r["reason"])
-        for r in conn.execute(
-            """
-            select d.species_code, l.reason
-              from points_ledger l
-              join walks w on w.id = l.walk_id
-              join detections d on d.id = l.ref_id
-             where l.user_id = %(u)s and l.walk_id <> %(w)s and l.reason = 'species_heard'
-               and w.started_at >= %(s)s and w.started_at < %(e)s
-            union
-            select p.species_code, l.reason
-              from points_ledger l
-              join walks w on w.id = l.walk_id
-              join photos p on p.id = l.ref_id
-             where l.user_id = %(u)s and l.walk_id <> %(w)s
-               and l.reason in ('species_photographed', 'anomaly_confirmed')
-               and w.started_at >= %(s)s and w.started_at < %(e)s
-            """,
-            {"u": walk["user_id"], "w": walk["id"], "s": day_start, "e": day_end},
-        )
-    }
     species = [
         ScoredSpecies(
             species_code=r["species_code"], rarity_tier=r["rarity_tier"], heard=r["heard"],
@@ -107,7 +80,7 @@ def apply_walk_scores(conn: psycopg.Connection, walk: dict, centroid: tuple[floa
             (walk["id"],),
         )
     ]
-    awards = score_species(species, already)
+    awards = score_species(species)
 
     conn.execute(
         "delete from points_ledger where walk_id = %s and reason = any(%s)", (walk["id"], list(SPECIES_REASONS))

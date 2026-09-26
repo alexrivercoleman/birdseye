@@ -16,6 +16,14 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — No more once-per-day scoring limit (C, Alexandros)
+- What changed: §7.5. A species now scores on every walk, even if the user already scored it earlier that day
+  (was: each (user, species, heard/photographed) paid at most once per local day, later walks showed `points: 0`).
+  No §5/§6 change. `api/app/game/scoring.py`: `score_species` lost its `already_awarded` argument.
+- Why: product decision.
+- Who needs to update what: nothing but redeploying the API. Walks scored before this keep their old points unless
+  rescored. Known farming risk (§11: many short walks or played-back recordings) is now larger.
+
 ## 2026-09-26 — XP + levels, profile bio/avatar, real profile + search endpoints (C, Alexandros)
 - What changed:
   - §5, migration `20260926220000_xp_profiles.sql`: `profiles.xp` int (lifetime sum of `points_ledger`, kept in sync
