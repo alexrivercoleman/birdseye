@@ -87,13 +87,42 @@ for (const l of style.layers) {
   const color = component === 'natural-features' ? (/water/.test(l.id) ? '#4f8a90' : C.moss) : /settlement|state|country/.test(l.id) ? C.bark : C.label
   paint(l.id, { 'text-color': color, 'text-halo-color': C.paper, 'text-halo-width': 1.2 })
 }
-// points of interest: only parks, gardens and landmarks; icons tinted to the palette
+const layout = (id, props) => byId[id] && Object.assign((byId[id].layout ??= {}), props)
+
+// points of interest: only parks, gardens and landmarks. Parks are the map's main labels: shown from further out
+// (any filterrank ≤ 5, where Outdoors only lets the biggest through below z16), larger, forest green.
 if (byId['poi-label']) {
-  byId['poi-label'].filter = ['all', byId['poi-label'].filter ?? true, ['match', ['get', 'class'], ['park_like', 'landmark', 'historic'], true, false]]
-  paint('poi-label', { 'text-color': C.moss, 'icon-color': C.moss })
+  const park = ['==', ['get', 'class'], 'park_like']
+  byId['poi-label'].filter = ['case', park, ['<=', ['get', 'filterrank'], 5],
+    ['match', ['get', 'class'], ['landmark', 'historic'], byId['poi-label'].filter, false]]
+  layout('poi-label', {
+    'text-font': ['case', park, ['literal', ['DIN Pro Bold', 'Arial Unicode MS Bold']], ['literal', ['DIN Pro Medium', 'Arial Unicode MS Regular']]],
+    // zoom has to be the top-level input; other POIs keep roughly Outdoors' sizes
+    'text-size': ['interpolate', ['linear'], ['zoom'],
+      11, ['case', park, 12, ['step', ['get', 'sizerank'], 18, 5, 12]],
+      17, ['case', park, 16, ['step', ['get', 'sizerank'], 18, 13, 12]]],
+  })
+  paint('poi-label', {
+    'text-color': ['case', park, C.forest, C.moss], 'icon-color': C.moss,
+    'text-halo-color': C.paper, 'text-halo-width': 1.6, 'text-halo-blur': 0.5,
+  })
 }
+// neighborhoods: bold spaced capitals, bigger and darker, more of them, until z16
+if (byId['settlement-subdivision-label']) {
+  const l = byId['settlement-subdivision-label']
+  l.maxzoom = 16
+  l.filter = l.filter.map((f) => (Array.isArray(f) && f[0] === '<=' ? ['<=', ['get', 'filterrank'], 5] : f))
+  layout(l.id, {
+    'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+    'text-size': ['interpolate', ['linear'], ['zoom'], 11, 12, 15, 17],
+    'text-letter-spacing': 0.18,
+  })
+  paint(l.id, { 'text-color': '#6b5842', 'text-halo-color': C.paper, 'text-halo-width': 2, 'text-halo-blur': 0.5 })
+}
+// no street names or highway shields: the map is about parks and trails, not driving (footpath names stay)
+hide('road-label', 'road-number-shield', 'road-exit-shield')
 hide('transit-label', 'airport-label', 'road-intersection', 'building-number-label', 'block-number-label', 'building-entrance',
-  'ferry-aerialway-label', 'road-exit-shield', 'level-crossing', 'crosswalks', 'golf-hole-label', 'golf-hole-line')
+  'ferry-aerialway-label', 'level-crossing', 'crosswalks', 'golf-hole-label', 'golf-hole-line')
 for (const id of ['admin-0-boundary', 'admin-1-boundary', 'admin-0-boundary-disputed']) paint(id, { 'line-color': '#b3a58c' })
 for (const id of ['admin-0-boundary-bg', 'admin-1-boundary-bg']) paint(id, { 'line-color': C.land })
 

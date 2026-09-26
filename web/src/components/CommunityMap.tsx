@@ -14,6 +14,7 @@ import { TierBadge } from './TierBadge'
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
 const START: [number, number] = [-84.3722, 33.7866] // Piedmont Park, for anyone who hasn't shared location
+const START_ZOOM = 14 // Mapbox's data only labels big parks (Piedmont Park) from z14
 const MIN_ZOOM = 11 // further out, the bbox is too big to ask for
 const RELOAD_MS = 350
 const SHOW_SAMPLES = !USE_MOCKS && import.meta.env.VITE_MAP_SAMPLES !== 'false'
@@ -48,7 +49,7 @@ export default function CommunityMap() {
   useEffect(() => {
     if (!token || !container.current) return
     mapboxgl.accessToken = token
-    const map = new mapboxgl.Map({ container: container.current, style: MAP_STYLE_URL, center: START, zoom: 13.5 })
+    const map = new mapboxgl.Map({ container: container.current, style: MAP_STYLE_URL, center: START, zoom: START_ZOOM })
     mapRef.current = map
     const geolocate = new mapboxgl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
