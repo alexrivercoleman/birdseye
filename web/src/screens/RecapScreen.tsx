@@ -11,24 +11,32 @@ import { TierBadge } from '../components/TierBadge'
 import { useAuth } from '../lib/auth'
 import { formatDate, formatDistance, formatDuration, formatTime } from '../lib/format'
 
+const SUMMARY_POLLS = 10
+
 export default function RecapScreen() {
   const { walkId } = useParams()
   const [recap, setRecap] = useState<Recap | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
+  const [awaitingSummaries, setAwaitingSummaries] = useState(false)
   const { profile } = useAuth()
   const justFinished = !!(useLocation().state as { justFinished?: boolean } | null)?.justFinished
 
   useEffect(() => {
     let alive = true
     let timer: number
+    // Opening a complete walk with missing species summaries makes the API write them in the background.
+    let summaryPolls = SUMMARY_POLLS
     const load = async () => {
       try {
         const r = await api.getWalk(walkId!)
         if (!alive) return
         setRecap(r)
         setError(null)
+        const missing = r.species.some((s) => !s.summary)
         if (r.status !== 'complete') timer = window.setTimeout(load, 2000)
+        else if (missing && summaryPolls-- > 0) timer = window.setTimeout(load, 3000)
+        setAwaitingSummaries(r.status !== 'complete' || (missing && summaryPolls >= 0))
       } catch (e) {
         if (!alive) return
         setError(String(e))
@@ -94,7 +102,7 @@ export default function RecapScreen() {
         {!recap.species.length && !processing && <p className="text-bark/60">No birds identified on this walk.</p>}
         <ul className="space-y-2">
           {recap.species.map((s) => (
-            <SpeciesRow key={s.species_code} s={s} />
+            <SpeciesRow key={s.species_code} s={s} awaitingSummary={awaitingSummaries} />
           ))}
         </ul>
       </section>
@@ -113,7 +121,8 @@ export default function RecapScreen() {
   )
 }
 
-function SpeciesRow({ s }: { s: RecapSpecies }) {
+function SpeciesRow({ s, awaitingSummary }: { s: RecapSpecies; awaitingSummary: boolean }) {
+  const pending = !s.summary && awaitingSummary
   return (
     <li id={`sp-${s.species_code}`} className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -133,10 +142,11 @@ function SpeciesRow({ s }: { s: RecapSpecies }) {
         </div>
         <span className={`shrink-0 font-bold ${s.points ? 'text-forest' : 'text-bark/40'}`}>+{s.points}</span>
       </div>
-      {(s.summary || s.photo_url) && (
+      {(s.summary || s.photo_url || pending) && (
         <div className="mt-3 flex items-start gap-3">
           {s.photo_url && <img src={s.photo_url} alt={s.common_name} className="h-24 w-24 shrink-0 rounded-xl object-cover" />}
           {s.summary && <p className="text-sm leading-relaxed text-bark/80">{s.summary}</p>}
+          {pending && <p className="animate-pulse text-sm text-bark/50">Writing a field note about this bird…</p>}
         </div>
       )}
       {s.spectrogram_url && <img src={s.spectrogram_url} alt="" className="mt-3 w-full rounded-lg" />}

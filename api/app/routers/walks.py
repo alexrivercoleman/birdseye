@@ -10,6 +10,7 @@ from app import schemas as s
 from app.audio.pipeline import ext_for, process_chunk, walk_tmp_dir
 from app.auth import CurrentUser, get_current_user
 from app.game.finish import rescore_walk, run_finish
+from app.llm.species_summary import fill_missing_summaries
 from app.photos.pipeline import ext_for as photo_ext_for
 from app.photos.pipeline import process_photo
 from app.social.recap import build_recap
@@ -164,9 +165,11 @@ def finish_walk(walk_id: UUID, background: BackgroundTasks, user: CurrentUser = 
 
 
 @router.get("/walks/{walk_id}", response_model=s.Recap)
-def get_walk(walk_id: UUID, user: CurrentUser = Depends(get_current_user)):
+def get_walk(walk_id: UUID, background: BackgroundTasks, user: CurrentUser = Depends(get_current_user)):
     with db.connect() as conn:
         recap = build_recap(conn, str(walk_id), user.id)
     if not recap:
         raise HTTPException(404, "Walk not found")
+    if recap.status == "complete" and any(sp.summary is None for sp in recap.species):
+        background.add_task(fill_missing_summaries, str(walk_id))
     return recap

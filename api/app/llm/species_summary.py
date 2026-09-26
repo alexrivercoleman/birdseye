@@ -5,10 +5,13 @@ re-running it (rescore after a late photo confirm) only writes the new species.
 
 import json
 import logging
+import threading
+import time
 from datetime import datetime, timedelta
 
 import psycopg
 
+from app import db
 from app.config import get_settings
 from app.llm.provider import complete_json
 
@@ -104,3 +107,23 @@ def write_species_summaries(conn: psycopg.Connection, walk_id: str) -> int:
     if len(written) < len(rows):
         log.warning("walk %s: LLM returned %d of %d species summaries", walk_id, len(written), len(rows))
     return len(written)
+
+
+# Walks finished before summaries existed (or whose LLM call failed) get them when their recap is first viewed.
+# One attempt per walk at a time, and at most one every RETRY_S, so a failing LLM isn't hammered by polling clients.
+RETRY_S = 300
+_lock = threading.Lock()
+_last_attempt: dict[str, float] = {}
+
+
+def fill_missing_summaries(walk_id: str) -> None:
+    with _lock:
+        now = time.monotonic()
+        if now - _last_attempt.get(walk_id, -RETRY_S) < RETRY_S:
+            return
+        _last_attempt[walk_id] = now
+    try:
+        with db.connect() as conn:
+            write_species_summaries(conn, walk_id)
+    except Exception:
+        log.exception("species summaries failed for walk %s", walk_id)
