@@ -117,7 +117,9 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 **chirps** — `walk_id`, `user_id`, PK(`walk_id`, `user_id`).
 
-**comments** — `id`, `walk_id`, `user_id`, `body` (≤ 500 chars).
+**comments** — `id`, `walk_id`, `user_id`, `parent_id` null (a top-level comment on the same walk; replies are one level deep), `body` (≤ 500 chars).
+
+**comment_likes** — `comment_id`, `user_id`, PK(`comment_id`, `user_id`). *(Replies and comment likes added 2026-09-26, see docs/CONTRACT_CHANGES.md.)*
 
 ### Walks
 
@@ -162,7 +164,7 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 ### RLS summary
 - `profiles`: readable by any authenticated user; writable by owner.
-- `follows`, `chirps`, `comments`: readable by authenticated users; insert/delete own rows only.
+- `follows`, `chirps`, `comments`, `comment_likes`: readable by authenticated users; insert/delete own rows only. `chirps`, `comments`, `comment_likes` are in the realtime publication (live feed).
 - `detections` (for the live walk-screen realtime subscription): owner can select.
 - Every other table: **no client access**; FastAPI uses the service role and applies masking (§7.9).
 

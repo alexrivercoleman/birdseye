@@ -1,3 +1,5 @@
+import type { Comment } from '../lib/social'
+import { SAMPLE_HEAT, SAMPLE_TRAILS } from './sampleMap'
 import type {
   FeedPage, LeaderboardRow, NearbyBounty, NestHatched, NestStatus, QuestClaimed, Recap, UserQuest,
 } from './types'
@@ -54,9 +56,26 @@ export function mockRecap(walk_id = 'mock-walk'): Recap {
     bounties_claimed: [],
     bounties_created: [],
     chirp_count: 4,
-    comment_count: 2,
+    comment_count: 7,
     viewer_chirped: false,
   }
+}
+
+export function mockComments(walk_id: string): Comment[] {
+  if (walk_id === 'w3') return []
+  const wren = { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null }
+  const owl = { id: 'u3', username: 'owl_out', display_name: null, avatar_url: null }
+  const c = (id: string, user: Comment['user'], body: string, h: number, parent_id: string | null = null, likers: string[] = []) =>
+    ({ id: `${walk_id}-${id}`, walk_id, parent_id: parent_id && `${walk_id}-${parent_id}`, body, created_at: hoursAgo(h), user, likers })
+  return [
+    c('c1', wren, 'That Pileated is a great find!', 0.7, null, ['u1', 'u3']),
+    c('c2', demoUser, '@wren_hunter Thanks! It was drumming near the lake.', 0.6, 'c1'),
+    c('c3', owl, 'Which side of the lake?', 0.5, 'c1', ['u2']),
+    c('c4', owl, 'Nice loop 🐦', 3),
+    c('c5', wren, 'Carolina Wrens are so loud in the morning.', 5, null, ['u1']),
+    c('c6', demoUser, 'Heading back tomorrow at dawn.', 6),
+    c('c7', owl, 'Save me a cardinal.', 8),
+  ]
 }
 
 export const mockFeed = (): FeedPage => {
