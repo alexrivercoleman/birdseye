@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     supabase_jwt_secret: str = ""
+    database_url: str = ""  # direct Postgres (session pooler), for app/db.py
 
     ebird_api_key: str = ""
     mapbox_token: str = ""
