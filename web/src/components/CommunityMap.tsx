@@ -20,7 +20,7 @@ const RELOAD_MS = 350
 const SHOW_SAMPLES = !USE_MOCKS && import.meta.env.VITE_MAP_SAMPLES !== 'false'
 
 // trail color/width by species_total; 0 = nobody has heard anything there yet
-const NONE = { color: '#8f9794', width: 2 }
+const NONE = { color: '#6fb3ea', width: 2 } // light blue, bluer than the map's teal water
 const SCALE: [number, string, number][] = [
   [1, '#f2b632', 3],
   [8, '#e0662f', 4.5],
