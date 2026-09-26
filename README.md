@@ -55,7 +55,8 @@ The migration enables PostGIS, creates all §5 tables, RLS policies, `are_friend
 Auth: email + password with **Confirm email turned off** (Authentication → Sign In / Providers → Email), so no emails are sent. See docs/CONTRACT_CHANGES.md.
 
 ### Deploy
-- **Web:** Vercel, root directory `web/`, env vars from `web/.env.example`.
+- **Web:** Vercel project `birdseye` (https://birdseye-pi.vercel.app), root directory `web/`, env vars from
+  `web/.env.example`. **Every push to `main` deploys automatically.** `/api/*` is rewritten to the API in `web/vercel.json`.
 - **API:** Vultr VPS: `docker compose up -d --build` with `api/.env` filled in and `API_DOMAIN` set (an `sslip.io` hostname works).
 
 ## Credits
