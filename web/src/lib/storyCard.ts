@@ -1,6 +1,9 @@
-// Instagram story card for a walk: a 1080×1920 PNG drawn on a canvas. Instagram's own UI covers roughly the top 230 px
-// (profile bar) and bottom 200 px (reply bar), so everything sits between. The map matches RecapMap (lib/mapView),
-// drawn at 2×. Shared through the OS share sheet (Web Share API), since Instagram's Stories API is native-only.
+// Instagram story images for a walk, drawn on a canvas:
+// - renderStoryCard: a full 1080×1920 card. Instagram's own UI covers roughly the top 230 px (profile bar) and bottom
+//   200 px (reply bar), so everything sits between. The map matches RecapMap (lib/mapView), drawn at 2×. Shared
+//   through the OS share sheet (Web Share API), since Instagram's Stories API is native-only.
+// - renderSticker: Strava-style transparent PNG (title, route + bird pins with no map, distance, time, 3 rarest birds)
+//   to copy and paste onto a story photo as a movable sticker.
 import type { Recap, RecapSpecies, Tier } from '../api/types'
 import bird from '../assets/logo/bird.png'
 import wordmark from '../assets/logo/wordmark.png'
@@ -53,18 +56,120 @@ export async function renderStoryCard(recap: Recap): Promise<File> {
     text(ctx, label.toUpperCase(), x + bw / 2, 1420, 22, last ? '#c9d3c4' : C.muted, { weight: 600, align: 'center', spacing: 3 })
   })
 
-  // top birds: rarest first, then most points
-  const top = [...recap.species].sort((a, b) => TIER_RANK[a.rarity_tier] - TIER_RANK[b.rarity_tier] || b.points - a.points).slice(0, 3)
+  const top = rarest(recap)
   text(ctx, 'TOP BIRDS', X, 1510, 24, C.muted, { weight: 700, spacing: 4 })
   if (recap.species.length > top.length)
     text(ctx, `of ${recap.species.length} species`, W - X, 1510, 26, C.muted, { align: 'right' })
   if (!top.length) text(ctx, 'A quiet walk: no birds identified.', X, 1580, 38, C.bark)
   top.forEach((s, i) => speciesRow(ctx, s, 1578 + i * 64))
 
-  const blob = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not draw the story card'))), 'image/png'),
+  return new File([await toPng(canvas)], `birdseye-walk-${recap.started_at.slice(0, 10)}.png`, { type: 'image/png' })
+}
+
+const SW = 900 // sticker width
+const STICKER_CHIP: Record<Tier, [string, string]> = {
+  rare: [TIER_COLORS.rare, C.bark],
+  uncommon: [TIER_COLORS.uncommon, C.white],
+  common: ['#6f756f', C.white],
+}
+
+export async function renderSticker(recap: Recap): Promise<Blob> {
+  const route = recap.route ?? []
+  const pins = recap.species.filter((s) => s.location)
+  const coords: [number, number][] = [...route, ...pins.map((s): [number, number] => [s.location!.lng, s.location!.lat])]
+  const top = rarest(recap)
+  const ROUTE = { w: 820, h: 560 }
+  const height = 130 + (coords.length ? ROUTE.h + 40 : 0) + 170 + top.length * 72 + 130
+  const canvas = document.createElement('canvas')
+  canvas.width = SW
+  canvas.height = height
+  const ctx = canvas.getContext('2d')!
+  await document.fonts?.ready
+  // one soft shadow under everything, so white reads on any photo
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'
+  ctx.shadowBlur = 14
+  ctx.shadowOffsetY = 2
+
+  text(ctx, recap.public_area_label ?? 'Bird walk', SW / 2, 96, 60, C.white, { weight: 800, align: 'center', maxWidth: SW - 80 })
+  let y = 130
+
+  if (coords.length) {
+    const x0 = (SW - ROUTE.w) / 2
+    const view = fitView(coords, ROUTE.w / 2, ROUTE.h / 2, 24)
+    const at = (c: [number, number]): [number, number] => {
+      const [px, py] = view.project(c)
+      return [x0 + px * 2, y + py * 2]
+    }
+    if (route.length >= 2) {
+      ctx.beginPath()
+      route.forEach((c, i) => (i ? ctx.lineTo(...at(c)) : ctx.moveTo(...at(c))))
+      ctx.strokeStyle = C.white
+      ctx.lineWidth = 10
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.stroke()
+    }
+    for (const s of pins) {
+      const [px, py] = at([s.location!.lng, s.location!.lat])
+      ctx.beginPath()
+      ctx.arc(px, py, s.photographed ? 25 : 23, 0, Math.PI * 2)
+      ctx.fillStyle = s.photographed ? C.forest : C.white
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(px, py, 17, 0, Math.PI * 2)
+      ctx.fillStyle = TIER_COLORS[s.rarity_tier]
+      ctx.fill()
+    }
+    y += ROUTE.h + 40
+  }
+
+  const stats: [string, string][] = [
+    ['Distance', formatDistance(recap.distance_m)],
+    ['Time', formatDuration(recap.duration_s)],
+  ]
+  stats.forEach(([label, value], i) => {
+    const cx = SW / 2 + (i ? 210 : -210)
+    text(ctx, value, cx, y + 80, 80, C.white, { weight: 800, align: 'center', maxWidth: 400 })
+    text(ctx, label.toUpperCase(), cx, y + 124, 26, C.white, { weight: 700, align: 'center', spacing: 4 })
+  })
+  y += 170
+
+  for (const s of top) {
+    const chip = s.rarity_tier.toUpperCase()
+    ctx.font = `700 24px ${FONT}`
+    const chipW = ctx.measureText(chip).width + 40
+    ctx.font = `600 46px ${FONT}`
+    const nameW = Math.min(ctx.measureText(s.common_name).width, SW - 80 - chipW - 18)
+    const x = (SW - nameW - 18 - chipW) / 2
+    text(ctx, s.common_name, x, y + 52, 46, C.white, { weight: 600, maxWidth: nameW + 1 })
+    const [bg, fg] = STICKER_CHIP[s.rarity_tier]
+    roundRect(ctx, x + nameW + 18, y + 14, chipW, 46, 23, bg)
+    ctx.save()
+    ctx.shadowColor = 'transparent'
+    text(ctx, chip, x + nameW + 18 + chipW / 2, y + 46, 24, fg, { weight: 700, align: 'center', spacing: 2 })
+    ctx.restore()
+    y += 72
+  }
+
+  // wordmark on a small paper pill: its greens vanish on leafy photos otherwise
+  const logo = await loadImage(wordmark)
+  const lh = 64
+  const lw = (logo.width * lh) / logo.height
+  roundRect(ctx, SW / 2 - lw / 2 - 26, y + 26, lw + 52, lh + 24, (lh + 24) / 2, 'rgba(247, 243, 234, 0.94)')
+  ctx.shadowColor = 'transparent'
+  ctx.drawImage(logo, SW / 2 - lw / 2, y + 38, lw, lh)
+  return toPng(canvas)
+}
+
+/** Up to 3 birds, rarest first, then most points. */
+function rarest(recap: Recap): RecapSpecies[] {
+  return [...recap.species].sort((a, b) => TIER_RANK[a.rarity_tier] - TIER_RANK[b.rarity_tier] || b.points - a.points).slice(0, 3)
+}
+
+function toPng(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not draw the image'))), 'image/png'),
   )
-  return new File([blob], `birdseye-walk-${recap.started_at.slice(0, 10)}.png`, { type: 'image/png' })
 }
 
 async function drawMap(ctx: CanvasRenderingContext2D, recap: Recap) {
