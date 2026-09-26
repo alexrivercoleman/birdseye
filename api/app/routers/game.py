@@ -31,6 +31,16 @@ def my_nests(user: CurrentUser = Depends(get_current_user)):
         return quests.nest_status(conn, user.id, datetime.now(timezone.utc))
 
 
+@router.post("/quests/nests/hatch", response_model=s.NestHatched)
+def hatch_nest(user: CurrentUser = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    with db.connect() as conn:
+        err = quests.hatch(conn, user.id, now)
+        if err:
+            raise HTTPException(409, err)
+        return s.NestHatched(points_awarded=quests.NEST_HATCH_POINTS, nests=quests.nest_status(conn, user.id, now))
+
+
 @router.post("/quests/{quest_id}/claim", response_model=s.QuestClaimed)
 def claim_quest(quest_id: UUID, user: CurrentUser = Depends(get_current_user)):
     now = datetime.now(timezone.utc)

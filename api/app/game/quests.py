@@ -3,6 +3,7 @@
 For now every user gets the same three example quests each local week (Monday to Monday); LLM/eBird-driven
 generation can replace WEEKLY_QUESTS later. Progress counts the user's complete walks started inside the quest's
 week. A quest pays out only when claimed; the first claim of a week lays an egg in the next of 5 monthly nests.
+Filling all 5 lets the user hatch that month's golden egg once, for NEST_HATCH_POINTS.
 
 Local time uses the longitude offset from scoring.local_day_bounds (profile's last_lng, else the default).
 """
@@ -16,6 +17,7 @@ from psycopg.types.json import Jsonb
 from app.config import get_settings
 
 NEST_COUNT = 5
+NEST_HATCH_POINTS = 500
 TRAIL_BUFFER_M = 40      # a track point this close to a trail is "on" it
 NO_TRAIL_DATA_M = 1000   # no cached trail within this distance → no data for the area, so count the distance
 
@@ -131,28 +133,33 @@ def open_quests(conn: psycopg.Connection, user_id: str, now: datetime) -> list[d
 def nest_status(conn: psycopg.Connection, user_id: str, now: datetime) -> dict:
     week = _user_week(conn, user_id, now)
     row = conn.execute(
-        "select count(*) filter (where month = %(m)s) as filled, bool_or(week_start = %(w)s) as this_week"
+        "select count(*) filter (where month = %(m)s) as filled, bool_or(week_start = %(w)s) as this_week,"
+        " exists (select 1 from nest_hatches where user_id = %(u)s and month = %(m)s) as hatched"
         " from quest_nests where user_id = %(u)s",
         {"u": user_id, "m": week.month, "w": week.week_start},
     ).fetchone()
     return {"month": week.month.strftime("%Y-%m"), "total": NEST_COUNT, "filled": min(row["filled"], NEST_COUNT),
-            "laid_this_week": bool(row["this_week"])}
+            "laid_this_week": bool(row["this_week"]), "hatched": row["hatched"]}
+
+
+def _pay(conn: psycopg.Connection, user_id: str, amount: int, reason: str, ref_id=None) -> None:
+    conn.execute(
+        """
+        insert into points_ledger (user_id, amount, reason, ref_id, geog)
+        select p.id, %s, %s, %s,
+               case when p.last_lng is not null
+                    then ST_SetSRID(ST_MakePoint(p.last_lng, p.last_lat), 4326)::geography end
+          from profiles p where p.id = %s
+        """,
+        (amount, reason, ref_id, user_id),
+    )
 
 
 def claim(conn: psycopg.Connection, user_id: str, quest: dict, now: datetime) -> bool:
     """Pays out a completed, unclaimed quest (caller checks) and lays this week's egg if there's room.
     Returns whether an egg was laid."""
     conn.execute("update user_quests set claimed_at = %s where id = %s", (now, quest["id"]))
-    conn.execute(
-        """
-        insert into points_ledger (user_id, amount, reason, ref_id, geog)
-        select p.id, %s, 'quest_complete', %s,
-               case when p.last_lng is not null
-                    then ST_SetSRID(ST_MakePoint(p.last_lng, p.last_lat), 4326)::geography end
-          from profiles p where p.id = %s
-        """,
-        (quest["reward_points"], quest["id"], user_id),
-    )
+    _pay(conn, user_id, quest["reward_points"], "quest_complete", quest["id"])
     week = _user_week(conn, user_id, now)
     filled = conn.execute(
         "select count(*) as n from quest_nests where user_id = %s and month = %s", (user_id, week.month)
@@ -165,3 +172,22 @@ def claim(conn: psycopg.Connection, user_id: str, quest: dict, now: datetime) ->
         (user_id, week.week_start, week.month, quest["id"]),
     ).fetchone()
     return row is not None
+
+
+def hatch(conn: psycopg.Connection, user_id: str, now: datetime) -> str | None:
+    """Hatches this month's golden egg and pays NEST_HATCH_POINTS. Returns an error message if the nests
+    aren't all full yet or it's already hatched."""
+    week = _user_week(conn, user_id, now)
+    filled = conn.execute(
+        "select count(*) as n from quest_nests where user_id = %s and month = %s", (user_id, week.month)
+    ).fetchone()["n"]
+    if filled < NEST_COUNT:
+        return "Not every nest is full yet"
+    row = conn.execute(
+        "insert into nest_hatches (user_id, month) values (%s, %s) on conflict do nothing returning month",
+        (user_id, week.month),
+    ).fetchone()
+    if row is None:
+        return "Already hatched this month"
+    _pay(conn, user_id, NEST_HATCH_POINTS, "nest_hatch")
+    return None

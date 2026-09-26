@@ -118,9 +118,10 @@ export type UserQuest = {
   claimed_at: string | null
 }
 
-export type NestStatus = { month: string; total: number; filled: number; laid_this_week: boolean }
+export type NestStatus = { month: string; total: number; filled: number; laid_this_week: boolean; hatched: boolean }
 
 export type QuestClaimed = { points_awarded: number; egg_laid: boolean; nests: NestStatus }
+export type NestHatched = { points_awarded: number; nests: NestStatus }
 
 export type NearbyBounty = {
   bounty_id: string

@@ -1,10 +1,27 @@
 // §8 screen 8, Pokémon GO field-research style: five monthly nests (one egg per week, laid by the week's first
-// claimed quest) above the active quests. Completed quests are covered by a CLAIM REWARD button.
+// claimed quest) above the active quests. Completed quests are covered by a CLAIM REWARD button. Filling every
+// nest brings up a big egg the user taps until it cracks open for a bonus.
 import { Fragment, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../api/client'
 import type { NestStatus, UserQuest } from '../api/types'
+import nestImg from '../assets/pixel/nest.png'
+import eggImg from '../assets/pixel/egg.png'
+
+// egg-0 (whole) … egg-4 (badly cracked), egg-5 (top flying off), egg-6 (empty bottom shell); all the same canvas
+const EGG_FRAMES = Object.entries(
+  import.meta.glob<string>('../assets/pixel/egg-*.png', { eager: true, import: 'default' }),
+)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([, url]) => url)
+const PIXELATED = '[image-rendering:pixelated]'
 
 const CLAIM_ANIM_MS = 550
+const EGG_DROP_MS = 900 // let the last nest's egg land before the big egg appears
+const HATCH_TAPS = 10
+const CRACK_MS = 350 // top of the shell flies off, then the empty bottom shell
+
+const isFull = (n: NestStatus | null) => !!n && n.filled >= n.total && !n.hatched
 
 export default function QuestsScreen() {
   const [quests, setQuests] = useState<UserQuest[] | null>(null)
@@ -12,6 +29,7 @@ export default function QuestsScreen() {
   const [error, setError] = useState<string | null>(null)
   const [claiming, setClaiming] = useState<string | null>(null)
   const [dropEgg, setDropEgg] = useState(false)
+  const [hatchOpen, setHatchOpen] = useState(false)
   const month = new Date().toLocaleDateString([], { month: 'long' })
 
   useEffect(() => {
@@ -19,6 +37,7 @@ export default function QuestsScreen() {
       .then(([q, n]) => {
         setQuests(q)
         setNests(n)
+        setHatchOpen(isFull(n))
       })
       .catch((e) => setError(String(e)))
   }, [])
@@ -32,6 +51,7 @@ export default function QuestsScreen() {
       setQuests((qs) => qs?.filter((x) => x.id !== q.id) ?? null)
       setNests(res.nests)
       setDropEgg(res.egg_laid)
+      if (res.egg_laid && isFull(res.nests)) setTimeout(() => setHatchOpen(true), EGG_DROP_MS)
     } catch (e) {
       setError(`Couldn't claim: ${e}`)
     } finally {
@@ -53,14 +73,28 @@ export default function QuestsScreen() {
         <NestRow total={nests?.total ?? 5} filled={nests?.filled ?? 0} dropLast={dropEgg} />
         {nests && (
           <p className="text-center text-xs text-bark/60">
-            {nests.filled >= nests.total
-              ? 'Every nest is full this month!'
-              : nests.laid_this_week
-                ? "This week's egg is laid. The next nest opens Monday."
-                : 'Complete a quest this week to lay an egg.'}
+            {nests.hatched
+              ? "Every nest is full, and you hatched this month's big egg!"
+              : nests.filled >= nests.total
+                ? 'Every nest is full this month!'
+                : nests.laid_this_week
+                  ? "This week's egg is laid. The next nest opens Monday."
+                  : 'Complete a quest this week to lay an egg.'}
           </p>
         )}
+        {isFull(nests) && !hatchOpen && (
+          <button
+            onClick={() => setHatchOpen(true)}
+            className="mx-auto mt-3 block rounded-full bg-gradient-to-b from-rare to-[#e39a1c] px-5 py-2 text-sm font-extrabold tracking-wide text-white shadow-sm active:brightness-95"
+          >
+            HATCH THE BIG EGG
+          </button>
+        )}
       </section>
+
+      {hatchOpen && (
+        <HatchOverlay onHatched={setNests} onClose={() => setHatchOpen(false)} />
+      )}
 
       <section>
         <h2 className="mb-3 px-1 font-bold text-forest">Field research</h2>
@@ -175,24 +209,128 @@ function Footprint({ className, delay }: { className: string; delay?: number }) 
   )
 }
 
+// Pixel-art nest (31×13 px) with the egg (17×20 px) sunk into it: the whole nest, then the egg, then the nest's
+// front rim (rows 5+) drawn again over the egg's base. Box is 31×25 px, nest along the bottom.
 function Nest({ egg, drop, dim }: { egg: boolean; drop: boolean; dim: boolean }) {
+  const nest = `absolute inset-x-0 bottom-0 h-[52%] w-full ${PIXELATED}`
   return (
-    <svg viewBox="0 0 56 40" className={`w-11 shrink-0 ${dim ? 'opacity-45' : ''}`} aria-label={egg ? 'Nest with egg' : 'Empty nest'}>
-      <ellipse cx="28" cy="18" rx="24" ry="8" fill="#6b4f35" />
-      <ellipse cx="28" cy="18.5" rx="19" ry="5.5" fill="#3b2a1d" />
+    <div
+      role="img"
+      aria-label={egg ? 'Nest with egg' : 'Empty nest'}
+      className={`relative aspect-[31/25] w-11 shrink-0 ${dim ? 'opacity-45' : ''}`}
+    >
+      <img src={nestImg} alt="" className={nest} />
       {egg && (
-        <g className={drop ? 'animate-egg-drop' : ''} style={{ transformBox: 'fill-box', transformOrigin: 'bottom' }}>
-          <path d="M28 4C33 4 36 11.5 36 17.5C36 23 32.5 27 28 27C23.5 27 20 23 20 17.5C20 11.5 23 4 28 4Z" fill="#a9d9d0" />
-          <ellipse cx="25" cy="11" rx="2" ry="3.2" fill="#fff" opacity="0.55" transform="rotate(-18 25 11)" />
-        </g>
+        <img
+          src={eggImg}
+          alt=""
+          className={`absolute left-[22.58%] top-0 h-[80%] w-[54.84%] origin-bottom ${PIXELATED} ${drop ? 'animate-egg-drop' : ''}`}
+        />
       )}
-      <path d="M4 18Q6 36 28 37Q50 36 52 18Q40 26 28 26Q16 26 4 18Z" fill="#8a6644" />
-      <g fill="none" strokeLinecap="round" strokeWidth="1.4">
-        <path d="M7 22Q20 30 36 28" stroke="#5a4330" />
-        <path d="M14 30Q30 34 48 23" stroke="#5a4330" />
-        <path d="M9 26Q24 29 45 27" stroke="#b08a5f" />
-        <path d="M18 34Q32 31 42 33" stroke="#b08a5f" />
-      </g>
-    </svg>
+      <img src={nestImg} alt="" className={`${nest} [clip-path:inset(38.46%_0_0_0)]`} />
+    </div>
+  )
+}
+
+// Every nest is full: a big egg over a white glow. Each tap shakes it and the cracks spread; the last tap breaks
+// it open and pays the bonus.
+function HatchOverlay({ onHatched, onClose }: { onHatched: (n: NestStatus) => void; onClose: () => void }) {
+  const [taps, setTaps] = useState(0)
+  const [opened, setOpened] = useState(false)
+  const [points, setPoints] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const cracked = taps >= HATCH_TAPS
+  const frame = cracked ? (opened ? 6 : 5) : Math.min(4, Math.floor((taps * 5) / HATCH_TAPS))
+
+  async function hatch() {
+    setError(null)
+    try {
+      const [res] = await Promise.all([api.hatchNest(), new Promise((r) => setTimeout(r, CRACK_MS * 2))])
+      setPoints(res.points_awarded)
+      onHatched(res.nests)
+    } catch (e) {
+      setError(`Couldn't hatch: ${e}`)
+    }
+  }
+
+  function onTap() {
+    if (cracked) return
+    setTaps(taps + 1)
+    if (taps + 1 < HATCH_TAPS) return
+    setTimeout(() => setOpened(true), CRACK_MS)
+    void hatch()
+  }
+
+  return createPortal(
+    <div role="dialog" aria-modal aria-label="Big egg" className="fixed inset-0 z-50 animate-fade-in overflow-hidden bg-black/75">
+      <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden>
+        <div className="size-[150vmax] animate-rays-spin opacity-35 [background:repeating-conic-gradient(white_0deg_7deg,transparent_7deg_22.5deg)] [mask-image:radial-gradient(circle,black_8%,transparent_40%)]" />
+      </div>
+      <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden>
+        <div className="size-96 animate-glow-pulse rounded-full [background:radial-gradient(circle,white_0%,rgb(255_255_255/0.75)_30%,rgb(255_255_255/0.2)_55%,transparent_70%)]" />
+      </div>
+      {cracked && <div className="pointer-events-none absolute inset-0 animate-flash bg-white" aria-hidden />}
+
+      <div className="relative flex h-full flex-col items-center justify-center gap-8 px-6 text-center">
+        <div className="text-white [text-shadow:0_2px_6px_rgb(0_0_0/0.6)]">
+          <p className="text-2xl font-extrabold">{points != null ? 'It hatched!' : 'Every nest is full!'}</p>
+          <p className="mt-1 text-sm font-semibold text-white/85">
+            {points != null ? 'Bonus points for filling every nest' : cracked ? 'Cracking…' : 'Tap the egg to hatch it'}
+          </p>
+        </div>
+
+        <button
+          onClick={onTap}
+          disabled={cracked}
+          aria-label={cracked ? 'Egg cracked' : 'Tap to crack the egg'}
+          className="relative animate-big-egg-in touch-manipulation select-none"
+        >
+          <div key={taps} className={`origin-bottom ${taps === 0 ? 'animate-egg-wobble' : cracked ? '' : 'animate-egg-shake'}`}>
+            <img
+              src={EGG_FRAMES[frame]}
+              alt=""
+              draggable={false}
+              className={`w-[209px] ${PIXELATED} drop-shadow-[0_6px_12px_rgb(0_0_0/0.35)]`}
+            />
+          </div>
+          {points != null && (
+            <div className="absolute inset-x-0 top-[12%] animate-points-rise text-rare [text-shadow:0_0_2px_white,0_0_12px_white,0_3px_0_rgb(0_0_0/0.25)]">
+              <div className="text-6xl font-black tabular-nums">+{points}</div>
+              <div className="text-lg font-extrabold tracking-widest">XP</div>
+            </div>
+          )}
+        </button>
+
+        <div className="min-h-12">
+          {error ? (
+            <div className="space-y-2">
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+              <div className="flex justify-center gap-6 text-sm font-bold text-white">
+                <button onClick={() => void hatch()} className="underline">
+                  Try again
+                </button>
+                <button onClick={onClose} className="text-white/70">
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : points != null ? (
+            <button
+              onClick={onClose}
+              className="rounded-full bg-gradient-to-b from-rare to-[#e39a1c] px-8 py-3 font-extrabold tracking-wide text-white shadow-lg active:brightness-95"
+            >
+              COLLECT
+            </button>
+          ) : (
+            !cracked && (
+              <button onClick={onClose} className="text-sm font-semibold text-white/70">
+                Later
+              </button>
+            )
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

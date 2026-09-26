@@ -194,11 +194,17 @@ class NestStatus(BaseModel):
     total: int  # nests per month (5)
     filled: int
     laid_this_week: bool
+    hatched: bool  # this month's golden egg (all nests full) has been hatched
 
 
 class QuestClaimed(BaseModel):
     points_awarded: int
     egg_laid: bool
+    nests: NestStatus
+
+
+class NestHatched(BaseModel):
+    points_awarded: int
     nests: NestStatus
 
 

@@ -1,4 +1,4 @@
-import type { CommunityMap, FeedPage, LeaderboardRow, NearbyBounty, NestStatus, QuestClaimed, Recap, UserQuest } from './types'
+import type { CommunityMap, FeedPage, LeaderboardRow, NearbyBounty, NestHatched, NestStatus, QuestClaimed, Recap, UserQuest } from './types'
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
 const daysFromNow = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString()
@@ -91,7 +91,8 @@ export const mockFeed = (): FeedPage => {
   return { items: [mine, friend, stranger], next_cursor: null }
 }
 
-// Stateful for the session so claiming works: two quests start complete, 3 of 5 nests are filled.
+// Stateful for the session so claiming works: two quests start complete, 4 of 5 nests are filled, so the first
+// claim fills the last nest and brings up the golden egg.
 const mockQuestList: UserQuest[] = [
   { template: 'trail_distance', params: { miles: 5 }, title: 'Walk 5 miles on a nature trail', target: 8047, progress: 5150, reward_points: 150 },
   { template: 'discover_family', params: { family_com_name: 'Woodpeckers', n: 3 }, title: 'Discover 3 species of woodpecker', target: 3, progress: 3, reward_points: 100 },
@@ -101,7 +102,7 @@ const mockQuestList: UserQuest[] = [
   starts_at: hoursAgo(24), ends_at: daysFromNow(6),
   completed_at: q.progress >= q.target ? hoursAgo(2) : null, claimed_at: null,
 }))
-const mockNestState: NestStatus = { month: new Date().toISOString().slice(0, 7), total: 5, filled: 3, laid_this_week: false }
+const mockNestState: NestStatus = { month: new Date().toISOString().slice(0, 7), total: 5, filled: 4, laid_this_week: false, hatched: false }
 
 export const mockQuests = (): UserQuest[] => mockQuestList.filter((q) => !q.claimed_at)
 export const mockNests = (): NestStatus => ({ ...mockNestState })
@@ -111,6 +112,10 @@ export function mockClaim(questId: string): QuestClaimed {
   const egg_laid = !mockNestState.laid_this_week && mockNestState.filled < mockNestState.total
   if (egg_laid) Object.assign(mockNestState, { filled: mockNestState.filled + 1, laid_this_week: true })
   return { points_awarded: q.reward_points, egg_laid, nests: mockNests() }
+}
+export function mockHatch(): NestHatched {
+  mockNestState.hatched = true
+  return { points_awarded: 500, nests: mockNests() }
 }
 
 export const mockBounties = (): NearbyBounty[] => [

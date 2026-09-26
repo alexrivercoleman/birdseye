@@ -16,6 +16,18 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — Big egg: hatch a full month of nests for 500 points (C, Alexandros)
+- What changed:
+  - §5: new table `nest_hatches` (`user_id`, `month` date, `created_at`, PK(`user_id`, `month`)), RLS on, API only.
+    `points_ledger.reason` gains `nest_hatch`. Migration `20260926150000_nest_hatch.sql`.
+  - §6: `NestStatus` gains `hatched: bool` (this month's big egg is hatched). New `POST /quests/nests/hatch` →
+    `{ points_awarded, nests }`: 409 unless all 5 of this month's nests are full and it isn't hatched yet. Pays 500.
+  - §8: Quests screen uses the pixel-art nest/egg sprites. When the last nest fills, a big egg appears over a white
+    glow. Each tap shakes it and spreads the cracks; the 10th tap breaks it open and shows +500.
+- Why: reward for filling every nest in a month.
+- Who needs to update what: **apply the migration before deploying the API**, since `GET /quests/nests` now reads
+  `nest_hatches`. The web mock starts at 4/5 nests, so the first claim triggers the big egg.
+
 ## 2026-09-26 — Quest claims, monthly nests, 3-tab nav (C, Alexandros)
 - What changed:
   - §5: `user_quests.claimed_at` (timestamptz null); templates `trail_distance` (params `miles`; target/progress in

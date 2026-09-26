@@ -135,7 +135,7 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 ### Game
 
-**points_ledger** — `id`, `user_id`, `amount`, `reason` (`species_heard` | `species_photographed` | `bounty_claim` | `quest_complete` | `anomaly_confirmed`), `walk_id` null, `ref_id` null, `geog` (walk centroid, for local leaderboards).
+**points_ledger** — `id`, `user_id`, `amount`, `reason` (`species_heard` | `species_photographed` | `bounty_claim` | `quest_complete` | `anomaly_confirmed` | `nest_hatch`), `walk_id` null, `ref_id` null, `geog` (walk centroid, for local leaderboards).
 
 **bounties** — `id`, `species_code`, `common_name`, `source_detection_id`, `source_user_id`, `center_geog` (fuzzed, see §7.6), `radius_m`, `expires_at` (created + 7 days), `status` (`active` | `expired`).
 
@@ -144,6 +144,8 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 **user_quests** — `id`, `user_id`, `template` (see §7.7), `params` jsonb, `title`, `flavor_text`, `target` int, `progress` int, `reward_points`, `starts_at`, `ends_at`, `completed_at` null, `claimed_at` null.
 
 **quest_nests** — `user_id`, `week_start` (local Monday), `month` (local first-of-month), `quest_id`, PK(`user_id`, `week_start`). One egg per week, max 5 per month.
+
+**nest_hatches** — `user_id`, `month` (local first-of-month), `created_at`, PK(`user_id`, `month`). The month's big egg, hatched once all 5 nests are full.
 
 ### Reference / cache
 
@@ -239,9 +241,11 @@ Follow/unfollow, chirp/unchirp, and comments go **directly to Supabase** from th
 
 `GET /quests/me` → `[UserQuest]` (unclaimed ones, including completed-but-unclaimed; ensures this week's quests exist).
 
-`GET /quests/nests` → `{ month: "YYYY-MM", total: 5, filled, laid_this_week }`
+`GET /quests/nests` → `{ month: "YYYY-MM", total: 5, filled, laid_this_week, hatched }`
 
 `POST /quests/{id}/claim` → `{ points_awarded, egg_laid, nests }` (404 not yours, 409 not complete or already claimed). Pays `reward_points`; the week's first claim lays an egg.
+
+`POST /quests/nests/hatch` → `{ points_awarded: 500, nests }` (409 if not all nests are full, or already hatched this month). Pays 500 (`nest_hatch`).
 
 `GET /bounties/nearby?lat&lng` → `[{ bounty_id, species_code, common_name, center: {lat,lng}, radius_m, expires_at, claimed_by_me }]` (within 25 km).
 
@@ -347,7 +351,7 @@ If eBird is unreachable, default everything to `common` and log. Never block a w
 
 Each user has up to **3 active quests**, each lasting 7 days. When fewer than 3 are active, generate more (on `GET /quests/me`).
 
-**Current implementation (2026-09-26):** every user gets the same 3 example quests each local week (`trail_distance` 5 mi, `discover_family` Woodpeckers ×3, `photo_species` Brown Thrasher), see `api/app/game/quests.py`. Completed quests must be claimed (`POST /quests/{id}/claim`) to pay out. The first claim of a week lays an egg in one of 5 monthly nests (`quest_nests`).
+**Current implementation (2026-09-26):** every user gets the same 3 example quests each local week (`trail_distance` 5 mi, `discover_family` Woodpeckers ×3, `photo_species` Brown Thrasher), see `api/app/game/quests.py`. Completed quests must be claimed (`POST /quests/{id}/claim`) to pay out. The first claim of a week lays an egg in one of 5 monthly nests (`quest_nests`). Filling all 5 lets the user hatch that month's big egg once for 500 points (`POST /quests/nests/hatch`).
 
 Templates:
 
@@ -434,7 +438,7 @@ Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Walk · Q
 5. **Recap** — stats header; Mapbox map with route and pins (distinct icon for heard vs. photographed vs. both; color by tier; tapping a pin scrolls to the species); species list sorted rare → common with play button + spectrogram; photo gallery; AI recap text; quest progress; bounties claimed/created; chirp + comments.
 6. **Feed** (C) — cards: user, area label, stats, static map (if precise), top 3 species, first photo, recap text snippet, chirp/comment counts.
 7. **Community Map** (A) — see §7.13.
-8. **Quests** (C) — 5 monthly nests on top (the week's first claimed quest lays an egg; footprints walk to the next nest); quest cards with progress bars and XP; completed ones are covered by a CLAIM REWARD button; bounties near you; leaderboards (Local / Friends toggle).
+8. **Quests** (C) — 5 monthly nests on top (the week's first claimed quest lays an egg; footprints walk to the next nest; pixel-art sprites in `web/src/assets/pixel/`). Filling all 5 brings up a big egg over a white glow that the user taps until it cracks for +500; quest cards with progress bars and XP; completed ones are covered by a CLAIM REWARD button; bounties near you; leaderboards (Local / Friends toggle).
 9. **Profile** (C) — stats, life list count, recent walks, follow button, **personal QR code** (encodes `https://<app-domain>/u/{username}`), and **"Scan QR"** using an in-app camera scanner (`html5-qrcode` or `jsQR`), since scanning with the iOS Camera app would open Safari instead of the PWA. `/u/{username}` route also works in a browser.
 10. **User search** (C) — username prefix search.
 

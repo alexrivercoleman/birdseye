@@ -15,6 +15,15 @@
   --animate-footstep: footstep 2.4s ease-in-out infinite;
   --animate-egg-drop: egg-drop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) both;
   --animate-claim-out: claim-out 0.55s ease-in both;
+  /* Big egg: pops in over a pulsing glow, wobbles until tapped, shakes on each tap, flashes and pays out. */
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-big-egg-in: big-egg-in 0.7s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+  --animate-egg-wobble: egg-wobble 1.8s ease-in-out infinite;
+  --animate-egg-shake: egg-shake 0.35s ease-in-out;
+  --animate-glow-pulse: glow-pulse 2.4s ease-in-out infinite;
+  --animate-rays-spin: rays-spin 18s linear infinite;
+  --animate-flash: flash 0.6s ease-out both;
+  --animate-points-rise: points-rise 0.8s cubic-bezier(0.3, 1.4, 0.5, 1) both;
 
   @keyframes footstep {
     0%, 10% { opacity: 0; }
@@ -29,6 +38,42 @@
   @keyframes claim-out {
     0%, 55% { transform: none; opacity: 1; }
     100% { transform: scale(0.92); opacity: 0; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+  }
+  @keyframes big-egg-in {
+    0% { transform: translateY(40px) scale(0.2); opacity: 0; }
+    100% { transform: none; opacity: 1; }
+  }
+  @keyframes egg-wobble {
+    0%, 70%, 100% { transform: none; }
+    76% { transform: rotate(-5deg); }
+    82% { transform: rotate(5deg); }
+    88% { transform: rotate(-3deg); }
+    94% { transform: rotate(2deg); }
+  }
+  @keyframes egg-shake {
+    0%, 100% { transform: none; }
+    20% { transform: translateX(-7px) rotate(-7deg); }
+    40% { transform: translateX(6px) rotate(6deg); }
+    60% { transform: translateX(-4px) rotate(-4deg); }
+    80% { transform: translateX(2px) rotate(2deg); }
+  }
+  @keyframes glow-pulse {
+    0%, 100% { transform: scale(0.92); opacity: 0.85; }
+    50% { transform: scale(1.06); opacity: 1; }
+  }
+  @keyframes rays-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes flash {
+    from { opacity: 0.95; }
+    to { opacity: 0; }
+  }
+  @keyframes points-rise {
+    0% { transform: translateY(40px) scale(0.4); opacity: 0; }
+    100% { transform: none; opacity: 1; }
   }
 }
 
