@@ -1,7 +1,7 @@
 import type { Comment } from '../lib/social'
 import { SAMPLE_HEAT, SAMPLE_TRAILS } from './sampleMap'
 import type {
-  CommunityMap, FeedPage, LeaderboardRow, NearbyBounty, NestHatched, NestStatus, QuestClaimed, Recap, UserQuest,
+  FeedPage, LeaderboardRow, NearbyBounty, NestHatched, NestStatus, QuestClaimed, Recap, UserQuest,
 } from './types'
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
@@ -151,14 +151,4 @@ export const mockLeaderboard = (): LeaderboardRow[] => [
   { rank: 2, user: demoUser, points: 415 },
 ]
 
-export const mockCommunityMap = (): CommunityMap => ({
-  trails: SAMPLE_TRAILS,
-  bounties: mockBounties(),
-  anomalies: [
-    {
-      species_code: 'verfly', common_name: 'Vermilion Flycatcher', center: { lat: 33.7868, lng: -84.3745 }, radius_m: 300,
-      detected_at: hoursAgo(30), reason: 'outside expected range/season', photo_confirmed: true,
-    },
-  ],
-  heat: SAMPLE_HEAT,
-})
+// The community map's mock data is the sample in ./sampleMap (public/sample-map.json).
