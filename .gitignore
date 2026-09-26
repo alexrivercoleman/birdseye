@@ -36,3 +36,6 @@ Thumbs.db
 
 # build artifacts
 *.tsbuildinfo
+
+# demo seed photo cache (bird_photos.py)
+scripts/seed/.photo_cache/

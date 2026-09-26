@@ -54,6 +54,7 @@ SPOTS = [
     ("BeltLine Westside", (-84.4450, 33.7250, -84.4200, 33.7600), (0.1, 0.0, 0.4, 0.7), 3),
     ("Grant Park", (-84.3760, 33.7310, -84.3640, 33.7410), (0.3, 0.0, 0.4, 0.6), 3),
     ("Olmsted Linear Park", (-84.3350, 33.7690, -84.3100, 33.7760), (0.5, 0.1, 0.3, 0.5), 3),
+    ("Georgia Tech", (-84.4130, 33.7690, -84.3880, 33.7880), (0.4, 0.1, 0.5, 0.8), 8),
 ]
 
 
@@ -172,6 +173,7 @@ ANOMALIES = [
     ("paibun", "Painted Bunting", "Piedmont Park", 5, False),
 ]
 REASON = "outside expected range/season"
+BOUNTY_SPOTS = {"Kennesaw Mountain", "Lullwater Preserve"}
 
 
 def season(kind: str, d: date) -> float:
@@ -204,7 +206,7 @@ def load_trails() -> dict[str, list[dict]]:
                 f"""
                 with g as (
                     select distinct group_id from trails
-                     where geom && ST_MakeEnvelope(%(w)s, %(s)s, %(e)s, %(n)s, 4326)::geography and name !~* %(street)s
+                     where geom && ST_MakeEnvelope(%(w)s, %(s)s, %(e)s, %(n)s, 4326)::geography and (name !~* %(street)s or name ~* '^PATH ')
                 )
                 select t.group_id, min(t.name) as name, sum(ST_Length(t.geom)) as length_m,
                        ST_AsGeoJSON(ST_Multi(ST_SimplifyPreserveTopology(ST_Collect(t.geom::geometry), 0.00004)), 5)::json as geometry
@@ -273,7 +275,7 @@ def simulate(trails: dict[str, list[dict]]) -> dict:
                     lng, lat = point_on(t["geometry"])
                     heat[(math.floor(lat / 0.0025), math.floor(lng / 0.0025))].add((walk_id, code))
                 if tier == "rare" and ago <= 6:
-                    recent_rare.append((code, name, t, ago))
+                    recent_rare.append((code, name, t, ago, spot))
     names = {c: (n, tier) for c, n, tier, *_ in SPECIES}
 
     out_trails = []
@@ -295,18 +297,16 @@ def simulate(trails: dict[str, list[dict]]) -> dict:
             lng, lat = point_on(rng.choice(trails[spot])["geometry"])
             anomalies.append({"species_code": code, "common_name": name, "center": fuzz(lng, lat), "radius_m": 300,
                               "days_ago": ago, "reason": REASON, "photo_confirmed": photo})
+    # At most one bounty per spot, and only at BOUNTY_SPOTS: the anomalies and the demo seed's own rare birds
+    # (scripts/seed/demo_seed.py) cover the other spots, and overlapping circles look like a bug.
     bounties, seen = [], set()
-    for code, name, t, ago in sorted(recent_rare, key=lambda r: r[3]):
-        if code in seen:
+    for code, name, t, ago, spot in sorted(recent_rare, key=lambda r: r[3]):
+        if spot not in BOUNTY_SPOTS or spot in seen:
             continue
-        seen.add(code)
+        seen.add(spot)
         lng, lat = point_on(t["geometry"])
         bounties.append({"bounty_id": f"sample-bounty-{code}", "species_code": code, "common_name": name,
                          "center": fuzz(lng, lat), "radius_m": 300, "expires_in_days": 7 - ago, "claimed_by_me": False})
-    # Painted Bunting is also a standing bounty near Piedmont, where the anomaly was reported
-    pb = next(a for a in anomalies if a["species_code"] == "paibun")
-    bounties.append({"bounty_id": "sample-bounty-paibun", "species_code": "paibun", "common_name": "Painted Bunting",
-                     "center": pb["center"], "radius_m": 300, "expires_in_days": 2, "claimed_by_me": False})
 
     cells = [{"lat": round((i + 0.5) * 0.0025, 5), "lng": round((j + 0.5) * 0.0025, 5), "weight": len(v)}
              for (i, j), v in heat.items()]
