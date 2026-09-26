@@ -1,7 +1,7 @@
 // §8 screen 8, Pokémon GO field-research style: five monthly nests (one egg per week, laid by the week's first
 // claimed quest) above the active quests. Completed quests are covered by a CLAIM REWARD button. Filling every
 // nest brings up a big egg the user taps until it cracks open for a bonus.
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../api/client'
 import type { NestStatus, UserQuest } from '../api/types'
@@ -64,15 +64,8 @@ export default function QuestsScreen() {
 
   return (
     <div className="space-y-6 p-4 pb-8">
-      <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-forest/10">
-        <div className="flex items-baseline justify-between">
-          <h2 className="font-bold text-forest">{month} nests</h2>
-          {nests && (
-            <span className="text-sm font-semibold tabular-nums text-bark/60">
-              {nests.filled} / {nests.total}
-            </span>
-          )}
-        </div>
+      <section className="px-1">
+        <h2 className="font-bold text-forest">{month} nests</h2>
         <NestRow total={nests?.total ?? 5} filled={nests?.filled ?? 0} dropLast={dropEgg} />
         {nests && (
           <p className="text-center text-xs text-bark/60">
@@ -162,31 +155,41 @@ function QuestCard({ quest: q, claiming, onClaim }: { quest: UserQuest; claiming
   )
 }
 
+// Nests zig-zag: even ones sit high, odd ones low, with the tracks walking diagonally between them.
+const NEST_H_PX = 35 // w-11 nest box at 31:25
+const TRACK_ANGLE_DEG = 50 // roughly the diagonal between neighbouring nests at phone widths
+
 function NestRow({ total, filled, dropLast }: { total: number; filled: number; dropLast: boolean }) {
   return (
-    <div className="my-4 flex items-center">
+    <div className="my-3 flex h-20 items-stretch">
       {Array.from({ length: total }, (_, i) => (
         <Fragment key={i}>
           {/* tracks into nest i: faint once it's filled, walking toward it if it's the next one */}
-          {i > 0 && <Tracks mode={i < filled ? 'done' : i === filled ? 'walking' : 'none'} />}
-          <Nest egg={i < filled} drop={dropLast && i === filled - 1} dim={i > filled} />
+          {i > 0 && <Tracks down={i % 2 === 1} mode={i < filled ? 'done' : i === filled ? 'walking' : 'none'} />}
+          <div className={i % 2 ? 'self-end' : 'self-start'}>
+            <Nest egg={i < filled} drop={dropLast && i === filled - 1} dim={i > filled} />
+          </div>
         </Fragment>
       ))}
     </div>
   )
 }
 
-function Tracks({ mode }: { mode: 'done' | 'walking' | 'none' }) {
+function Tracks({ mode, down }: { mode: 'done' | 'walking' | 'none'; down: boolean }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center justify-evenly overflow-hidden" aria-hidden>
+    <div className="relative min-w-0 flex-1" aria-hidden>
       {mode !== 'none' &&
-        [0, 1, 2].map((i) => (
+        [0.25, 0.5, 0.75].map((t, i) => (
           <Footprint
-            key={i}
-            className={`${i % 2 ? 'translate-y-[3px]' : '-translate-y-[3px]'} ${
-              mode === 'walking' ? 'animate-footstep text-moss' : 'text-bark/25'
-            }`}
+            key={t}
+            className={mode === 'walking' ? 'animate-footstep text-moss' : 'text-bark/25'}
             delay={mode === 'walking' ? i * 0.35 : undefined}
+            style={{
+              // along the line from one nest's middle to the next one's, alternating feet either side of it
+              left: `calc(${t * 100}% - 5px)`,
+              top: `calc(${NEST_H_PX / 2}px + ${down ? t : 1 - t} * (100% - ${NEST_H_PX}px) - 4px)`,
+              transform: `rotate(${down ? TRACK_ANGLE_DEG : -TRACK_ANGLE_DEG}deg) translateY(${i % 2 ? 2.5 : -2.5}px)`,
+            }}
           />
         ))}
     </div>
@@ -194,12 +197,12 @@ function Tracks({ mode }: { mode: 'done' | 'walking' | 'none' }) {
 }
 
 // A three-toed bird track pointing right (the direction of travel).
-function Footprint({ className, delay }: { className: string; delay?: number }) {
+function Footprint({ className, delay, style }: { className: string; delay?: number; style?: CSSProperties }) {
   return (
     <svg
       viewBox="0 0 12 10"
-      className={`h-2 w-2.5 shrink-0 ${className}`}
-      style={delay != null ? { animationDelay: `${delay}s` } : undefined}
+      className={`absolute h-2 w-2.5 ${className}`}
+      style={{ ...style, ...(delay != null ? { animationDelay: `${delay}s` } : {}) }}
       fill="none"
       stroke="currentColor"
       strokeWidth={1.5}
