@@ -17,13 +17,22 @@ import type {
 const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message)
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const { data } = await supabase.auth.getSession()
   const headers = new Headers(init.headers)
   if (data.session) headers.set('Authorization', `Bearer ${data.session.access_token}`)
   if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const res = await fetch(`${BASE}${path}`, { ...init, headers })
-  if (!res.ok) throw new Error(`${init.method ?? 'GET'} ${path} → ${res.status}: ${await res.text()}`)
+  if (!res.ok) throw new ApiError(`${init.method ?? 'GET'} ${path} → ${res.status}: ${await res.text()}`, res.status)
   return res.json() as Promise<T>
 }
 

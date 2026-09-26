@@ -35,6 +35,16 @@ pytest
 ```
 Every endpoint is currently a **stub** returning §6-shaped data from `app/stubs.py`, marked `# STUB` so it's easy to grep.
 
+### Testing on an iPhone (no deploy needed)
+iOS only allows the mic and GPS over HTTPS. Run three terminals, then open the tunnel URL on the phone:
+```sh
+cd api && uvicorn app.main:app --port 8000                  # needs requirements-ml.txt + ffmpeg on PATH
+cd web && npm run dev                                       # VITE_API_BASE_URL=/api proxies to :8000
+cloudflared tunnel --url http://localhost:5173              # prints https://<random>.trycloudflare.com
+```
+If port 8000 is taken, run the API on another port and start Vite with `API_PROXY_TARGET=http://localhost:<port>`.
+The tunnel URL changes every run. For the installed-app ("Add to Home Screen") test, open it in Safari → Share → Add to Home Screen.
+
 ### Database
 Create a Supabase project, then either:
 - paste `supabase/migrations/*.sql` into the SQL editor, or
