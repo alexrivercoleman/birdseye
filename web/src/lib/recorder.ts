@@ -1,8 +1,10 @@
-// 15 s chunked recording (§7.1). MediaRecorder is stopped and restarted every chunk so each blob is an
+// Chunked recording (§7.1). MediaRecorder is stopped and restarted every chunk so each blob is an
 // independently decodable file (with `timeslice`, only the first blob has headers). Small gaps are fine.
+// 6 s = two BirdNET 3 s windows; shorter chunks mean a bird shows up sooner (avg wait = CHUNK_MS / 2).
 // Voice processing is off: echo cancellation / noise suppression / AGC are tuned for speech and hurt bird ID.
 
-export const CHUNK_MS = 15_000
+export const CHUNK_MS = 6_000
+const MIN_CHUNK_S = 1.5 // drop slivers (e.g. stop() right after start); birdnetlib ignores audio under 1.5 s
 const TYPES = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
 
 export type Chunk = { blob: Blob; startedAt: string; durationS: number; mimeType: string }
@@ -100,13 +102,9 @@ export class ChunkRecorder {
     }
     rec.onstop = () => {
       const type = rec.mimeType || mimeType || 'audio/mp4'
-      if (parts.length) {
-        this.onChunk({
-          blob: new Blob(parts, { type }),
-          startedAt: started.toISOString(),
-          durationS: (Date.now() - started.getTime()) / 1000,
-          mimeType: type,
-        })
+      const durationS = (Date.now() - started.getTime()) / 1000
+      if (parts.length && durationS >= MIN_CHUNK_S) {
+        this.onChunk({ blob: new Blob(parts, { type }), startedAt: started.toISOString(), durationS, mimeType: type })
       }
       if (this.onFinalStop) {
         const f = this.onFinalStop

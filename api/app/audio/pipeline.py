@@ -1,6 +1,6 @@
 """Audio chunk pipeline (§7.2). process_chunk runs as a BackgroundTask per uploaded chunk.
 
-1. original → Storage audio-chunks/{walk_id}/{chunk_index}.{ext}
+1. original → Storage audio-chunks/{walk_id}/{chunk_index}.{ext} (done last, off the latency path)
 2. ffmpeg → mono 48 kHz WAV at {AUDIO_TMP_DIR}/{walk_id}/{chunk_index}.wav (kept until finish, for clips)
 3. BirdNET without location filter; 4. location/season list for the walk's start point (cached per walk)
 5–6. map to eBird taxonomy + thresholds (app.audio.filtering)
@@ -58,11 +58,6 @@ def process_chunk(chunk_id: str, raw_path: str, mime: str) -> None:
 
 def _process(chunk: dict, raw: Path, mime: str) -> int:
     walk_id = str(chunk["walk_id"])
-    try:
-        storage.upload("audio-chunks", chunk["storage_path"], raw.read_bytes(), mime.split(";")[0])
-    except Exception:
-        log.exception("storage upload failed for chunk %s; continuing with detection", chunk["id"])
-
     wav = walk_tmp_dir(walk_id) / f"{chunk['chunk_index']}.wav"
     subprocess.run(
         [get_settings().ffmpeg_bin, "-v", "error", "-y", "-i", str(raw), "-ac", "1", "-ar", "48000", str(wav)],
@@ -73,9 +68,8 @@ def _process(chunk: dict, raw: Path, mime: str) -> int:
     s = get_settings()
     kept = keep_detections(birdnet.analyze(str(wav)), by_sci, by_common, _expected_for_walk(walk_id),
                            s.min_conf, s.anomaly_conf)
-    with db.connect() as conn:
-        for k in kept:
-            conn.execute(
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.executemany(
                 """
                 insert into detections (walk_id, chunk_id, species_code, common_name, sci_name, confidence,
                                         detected_at, geog, is_anomaly, anomaly_reason)
@@ -96,11 +90,18 @@ def _process(chunk: dict, raw: Path, mime: str) -> int:
                                       where walk_id = %(w)s and recorded_at >= %(t)s
                                       order by recorded_at limit 1) a on true
                 """,
-                {"w": walk_id, "c": chunk["id"], "code": k.taxon.species_code, "name": k.taxon.common_name,
-                 "sci": k.taxon.sci_name, "conf": k.confidence,
-                 "t": chunk["started_at"] + timedelta(seconds=k.start_time),
-                 "anom": k.is_anomaly, "reason": ANOMALY_REASON if k.is_anomaly else None},
+                [{"w": walk_id, "c": chunk["id"], "code": k.taxon.species_code, "name": k.taxon.common_name,
+                  "sci": k.taxon.sci_name, "conf": k.confidence,
+                  "t": chunk["started_at"] + timedelta(seconds=k.start_time),
+                  "anom": k.is_anomaly, "reason": ANOMALY_REASON if k.is_anomaly else None}
+                 for k in kept],
             )
+
+    # Archive the original after detections are live, so the upload isn't on the latency path.
+    try:
+        storage.upload("audio-chunks", chunk["storage_path"], raw.read_bytes(), mime.split(";")[0])
+    except Exception:
+        log.exception("storage upload failed for chunk %s", chunk["id"])
     return len(kept)
 
 

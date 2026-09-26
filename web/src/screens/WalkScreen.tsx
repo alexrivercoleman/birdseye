@@ -6,14 +6,14 @@ import { api, USE_MOCKS } from '../api/client'
 import { PhotoConfirmSheet } from '../components/PhotoConfirmSheet'
 import { downscaleImage, formatDistance, formatDuration } from '../lib/format'
 import { GeoTracker, type GeoStatus } from '../lib/geo'
-import { ChunkRecorder, type MicStatus } from '../lib/recorder'
+import { CHUNK_MS, ChunkRecorder, type MicStatus } from '../lib/recorder'
 import { supabase } from '../lib/supabase'
 import { drain, enqueue, onCounts, onPhotoUploaded } from '../lib/uploadQueue'
 import { useWakeLock } from '../lib/wakeLock'
 
 type ActiveWalk = { walkId: string; startedAt: string; nextChunk: number }
 const KEY = 'birdseye.activeWalk'
-const TRACK_FLUSH_MS = 15_000
+const TRACK_FLUSH_MS = CHUNK_MS // so each chunk's detections have track points to interpolate between
 
 const loadWalk = (): ActiveWalk | null => {
   try {
