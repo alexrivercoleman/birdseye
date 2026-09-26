@@ -1,8 +1,11 @@
 // §8 screens 2–3: idle "Start Walk" (over the community map, §7.13) and the active walk. §7.1 recording rules live in lib/recorder, lib/geo,
 // lib/wakeLock and lib/uploadQueue. The active walk is persisted in localStorage so a reload can resume it.
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import { api, USE_MOCKS } from '../api/client'
+import parrotClosedImg from '../assets/pixel/parrot-closed.png'
+import parrotOpenImg from '../assets/pixel/parrot-open.png'
+import startWalkImg from '../assets/pixel/start-walk.png'
 import { PhotoConfirmSheet } from '../components/PhotoConfirmSheet'
 
 const CommunityMap = lazy(() => import('../components/CommunityMap')) // mapbox-gl is big; load it on demand
@@ -57,14 +60,38 @@ function IdleWalk({ onStart }: { onStart: (w: ActiveWalk) => void }) {
       </Suspense>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 px-6 pb-11 text-center">
         {error && <p className="pointer-events-auto max-w-xs rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        <button
-          onClick={start}
-          disabled={busy}
-          className="pointer-events-auto rounded-full bg-forest px-12 py-4 text-xl font-bold text-paper shadow-xl active:scale-95 disabled:opacity-60"
-        >
-          {busy ? 'Starting…' : 'Start Walk'}
-        </button>
+        <div className="relative" style={{ width: 55 * PX, height: 57 * PX }}>
+          <button
+            onClick={start}
+            disabled={busy}
+            aria-label={busy ? 'Starting walk' : 'Start Walk'}
+            className="pointer-events-auto absolute left-0 transition active:scale-95 disabled:animate-pulse"
+            style={{ top: 36 * PX, width: 44 * PX, height: 18 * PX }}
+          >
+            <img src={startWalkImg} alt="" className={`h-full w-full ${PIXEL_ART}`} />
+          </button>
+          <BlinkingParrot style={{ left: 24 * PX, top: 0, width: 31 * PX, height: 57 * PX }} />
+        </div>
       </div>
+    </div>
+  )
+}
+
+// Art-pixel coordinates: the sign is 44×18, the parrot 31×57 with its feet on row 35, so it stands on the sign's top edge.
+const PX = 2.5
+const PIXEL_ART = '[image-rendering:pixelated] drop-shadow-[0_3px_4px_rgba(0,0,0,0.35)]'
+
+function BlinkingParrot({ style }: { style: CSSProperties }) {
+  const [open, setOpen] = useState(true)
+  useEffect(() => {
+    const t = window.setInterval(() => setOpen((o) => !o), 2000)
+    return () => clearInterval(t)
+  }, [])
+  // Both frames stay mounted so the swap never waits on an image load.
+  return (
+    <div className="pointer-events-none absolute" style={style}>
+      <img src={parrotOpenImg} alt="" className={`absolute inset-0 h-full w-full ${PIXEL_ART} ${open ? '' : 'invisible'}`} />
+      <img src={parrotClosedImg} alt="" className={`absolute inset-0 h-full w-full ${PIXEL_ART} ${open ? 'invisible' : ''}`} />
     </div>
   )
 }
