@@ -212,7 +212,7 @@ function XpBar({ xp }: { xp: number }) {
   return (
     <div className="mt-4">
       <div className="flex justify-between text-xs font-semibold text-bark/60">
-        <span className="tabular-nums">{xp.toLocaleString()} XP</span>
+        <span className="tabular-nums">{lvl.xp.toLocaleString()} XP</span>
         <span className="tabular-nums">
           {lvl.xpLevelSpan ? `${(lvl.xpLevelSpan - lvl.xpIntoLevel).toLocaleString()} XP to Lv ${lvl.level + 1}` : 'Max level'}
         </span>
@@ -232,7 +232,7 @@ function XpBar({ xp }: { xp: number }) {
 function Stat({ label, value, to }: { label: string; value: number; to?: string }) {
   const body = (
     <>
-      <div className="text-lg font-bold tabular-nums text-forest">{value.toLocaleString()}</div>
+      <div className="text-lg font-bold tabular-nums text-forest">{(value ?? 0).toLocaleString()}</div>
       <div className="text-[10px] uppercase tracking-wide text-bark/50">{label}</div>
     </>
   )

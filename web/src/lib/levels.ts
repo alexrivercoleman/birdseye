@@ -32,7 +32,7 @@ export type LevelInfo = {
 }
 
 export function levelInfo(xp: number): LevelInfo {
-  xp = Math.max(0, xp)
+  xp = Number.isFinite(xp) ? Math.max(0, xp) : 0 // an older API build sends no xp
   let level = 1
   while (level < MAX_LEVEL && xpForLevel(level + 1) <= xp) level++
   const { title, tone } = TITLES.filter((t) => t.from <= level).at(-1)!
