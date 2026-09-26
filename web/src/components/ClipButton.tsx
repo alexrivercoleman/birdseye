@@ -29,9 +29,7 @@ export function ClipButton({ url, label }: { url: string; label: string }) {
         type="button"
         onClick={toggle}
         aria-label={`${playing ? 'Stop' : 'Play'} ${label} call`}
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] transition active:scale-90 ${
-          playing ? 'bg-fern text-forest' : 'bg-forest text-paper'
-        }`}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-fern text-[11px] text-white transition active:scale-90"
       >
         {playing ? '■' : '▶'}
       </button>
