@@ -1,14 +1,14 @@
 // §7.13 community map: everyone's detections by trail. Trails are colored and thickened by how many species were
 // heard within 75 m of them; tapping one opens its top species. Also bounty circles, fuzzed anomaly circles, and a
 // heatmap toggle. Data reloads for the visible area after every pan/zoom. Trails nobody has heard a bird on yet are
-// thin and grey. Outside mock mode the sample trails (api/sampleMap) are drawn on top until real walks fill the map.
+// thin and light blue. Outside mock mode the sample usage (api/sampleMap) is drawn on top, so demos look lived-in.
 import type { Feature, FeatureCollection, Polygon } from 'geojson'
 import mapboxgl, { type ExpressionSpecification, type GeoJSONSource } from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { api, USE_MOCKS } from '../api/client'
 import { MAP_STYLE_URL } from '../lib/mapStyle'
-import { withSamples } from '../api/sampleMap'
+import { loadSamples, samplesIn, withSamples } from '../api/sampleMap'
 import type { CommunityMap as MapData, LatLng, TrailSpecies } from '../api/types'
 import { TierBadge } from './TierBadge'
 
@@ -21,10 +21,11 @@ const SHOW_SAMPLES = !USE_MOCKS && import.meta.env.VITE_MAP_SAMPLES !== 'false'
 
 // trail color/width by species_total; 0 = nobody has heard anything there yet
 const NONE = { color: '#6fb3ea', width: 2 } // light blue, bluer than the map's teal water
+// (a busy Atlanta trail logs ~30 species in 90 days, hotspots 60+)
 const SCALE: [number, string, number][] = [
   [1, '#f2b632', 3],
-  [8, '#e0662f', 4.5],
-  [20, '#a4133c', 6.5],
+  [15, '#e0662f', 4.5],
+  [45, '#a4133c', 6.5],
 ]
 const BOUNTY = '#e3a008'
 const ANOMALY = '#7c3aed'
@@ -76,8 +77,12 @@ export default function CommunityMap() {
           failed = true
         }
         if (mine !== seq) return // a newer pan already asked
-        if (SHOW_SAMPLES) d = withSamples(d) // even if the API failed, so the demo map is never empty
-        else if (failed) return setStatus('error')
+        if (SHOW_SAMPLES) {
+          // even if the API failed, so the demo map is never empty
+          const s = await loadSamples().catch(() => null)
+          if (mine !== seq) return
+          if (s) d = withSamples(d, samplesIn(s, bbox))
+        } else if (failed) return setStatus('error')
         data.current = d
         draw(map, d)
         setStatus(failed ? 'error' : 'ok')
@@ -146,8 +151,8 @@ export default function CommunityMap() {
           style={{ background: `linear-gradient(to right, ${SCALE.map(([, c]) => c).join(', ')})` }}
         />
         <div className="mt-0.5 flex justify-between text-bark/60">
-          <span>1</span>
-          <span>20+</span>
+          <span>{SCALE[0][0]}</span>
+          <span>{SCALE[SCALE.length - 1][0]}+</span>
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-bark/60">
           <span className="h-0.5 w-4 rounded-full" style={{ background: NONE.color }} />
@@ -172,7 +177,8 @@ function addLayers(map: mapboxgl.Map) {
   map.addLayer({
     id: 'heat', type: 'heatmap', source: 'heat', layout: { visibility: 'none' },
     paint: {
-      'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 1, 0.35, 6, 1],
+      // log scale: 1 encounter is faint, ~20 warm, 200+ hottest (busy hotspots would flatten a linear scale)
+      'heatmap-weight': ['interpolate', ['linear'], ['ln', ['+', 1, ['get', 'weight']]], 0.7, 0.2, 3, 0.7, 5.5, 1],
       'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 11, 10, 16, 45],
       'heatmap-opacity': 0.75,
       'heatmap-color': [
