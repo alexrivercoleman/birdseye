@@ -1,15 +1,21 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app import db, stubs
 from app import schemas as s
-from app import stubs
 from app.auth import CurrentUser, get_current_user
+from app.social.feed import build_feed, parse_cursor
 
 router = APIRouter(tags=["social"])
 
 
 @router.get("/feed", response_model=s.FeedPage)
-async def feed(cursor: str | None = None, user: CurrentUser = Depends(get_current_user)):
-    return s.FeedPage(items=[stubs.recap()], next_cursor=None)  # STUB
+def feed(cursor: str | None = None, user: CurrentUser = Depends(get_current_user)):
+    try:
+        after = parse_cursor(cursor) if cursor else None
+    except ValueError:
+        raise HTTPException(422, "Malformed cursor") from None
+    with db.connect() as conn:
+        return build_feed(conn, user.id, after)
 
 
 # Declared before /users/{username} so "search" isn't captured as a username.

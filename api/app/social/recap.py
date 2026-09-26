@@ -2,7 +2,8 @@
 
 precise (owner or mutual follow): route, per-species/photo locations, static map.
 otherwise: public_area_label only. Clips, spectrograms and photos carry no location, so everyone gets them.
-summary=True drops the route, clip/spectrogram URLs and photos beyond the first 3.
+summary=True drops clip/spectrogram URLs and photos beyond the first 3, and thins the route to at most
+SUMMARY_ROUTE_POINTS points (feed cards draw it as a sketch; see docs/CONTRACT_CHANGES.md).
 """
 
 import psycopg
@@ -11,6 +12,7 @@ from app import schemas as s
 from app import storage
 
 TIER_ORDER = "case ws.rarity_tier when 'rare' then 0 when 'uncommon' then 1 else 2 end"
+SUMMARY_ROUTE_POINTS = 80
 
 
 def build_recap(conn: psycopg.Connection, walk_id: str, viewer_id: str, summary: bool = False) -> s.Recap | None:
@@ -49,7 +51,7 @@ def build_recap(conn: psycopg.Connection, walk_id: str, viewer_id: str, summary:
     if summary:
         photos = photos[:3]
     route = None
-    if precise and not summary:
+    if precise:
         route = [
             [r["lng"], r["lat"]]
             for r in conn.execute(
@@ -58,6 +60,9 @@ def build_recap(conn: psycopg.Connection, walk_id: str, viewer_id: str, summary:
                 (walk_id,),
             )
         ]
+        if summary and len(route) > SUMMARY_ROUTE_POINTS:
+            step = (len(route) - 1) / (SUMMARY_ROUTE_POINTS - 1)
+            route = [route[round(i * step)] for i in range(SUMMARY_ROUTE_POINTS)]
 
     photo_urls = storage.signed_urls("photos", [p["storage_path"] for p in photos] + [r["photo_path"] for r in species])
     clip_urls = {} if summary else storage.signed_urls("clips", [r["clip_path"] for r in species])
