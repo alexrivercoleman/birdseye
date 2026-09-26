@@ -416,7 +416,7 @@ async def vision_json(system: str, image_bytes: bytes, mime: str, user: str) -> 
 
 Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Map · Walk · Quests · Profile**. Respect iOS safe areas (`env(safe-area-inset-*)`). Web app manifest with `display: standalone`, icons, and theme color.
 
-1. **Auth** — email → 6-digit OTP code (Supabase). Don't use magic links: on iOS they open in Safari, not the installed PWA. Then pick a username.
+1. **Auth** — email + password (Supabase `signUp` / `signInWithPassword`), with "Confirm email" turned off so no email is ever sent. Then pick a username. *(Changed from email OTP: templates now require custom SMTP and the built-in sender is limited to a few emails/hour. See docs/CONTRACT_CHANGES.md.)* Don't use magic links: on iOS they open in Safari, not the installed PWA.
 2. **Walk (idle)** — big "Start Walk" button, active quests preview, nearby bounties.
 3. **Walk (active)** — timer, distance, species count, live list of detected species (newest on top, tier badge, subtle pulse animation when a new bird is heard), camera button, "End Walk". Mic/wake-lock status indicator. Warn if the upload queue is backing up.
 4. **Photo confirm sheet** — photo + suggestion chips.

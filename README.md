@@ -42,7 +42,7 @@ Create a Supabase project, then either:
 
 The migration enables PostGIS, creates all §5 tables, RLS policies, `are_friends()`, realtime on `detections`, and the storage buckets.
 
-Auth: in Supabase → Authentication → Email templates, make the sign-in email include the `{{ .Token }}` 6-digit code (spec §8: OTP code, not magic link).
+Auth: email + password with **Confirm email turned off** (Authentication → Sign In / Providers → Email), so no emails are sent. See docs/CONTRACT_CHANGES.md.
 
 ### Deploy
 - **Web:** Vercel, root directory `web/`, env vars from `web/.env.example`.
