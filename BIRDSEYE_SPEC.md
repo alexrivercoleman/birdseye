@@ -225,7 +225,7 @@ Waits for pending chunks/photos (poll DB up to ~60 s), then runs the finish pipe
 ### Social
 
 `GET /feed?cursor=` → `{ items: [RecapSummary], next_cursor }`
-Walks from people the viewer follows plus the viewer's own, newest first. `RecapSummary` = recap without `route`, `species[].clip_url/spectrogram_url`, `photos` beyond the first 3; includes `static_map_url` only if precise.
+Every user's completed walks plus the viewer's own still-processing walks, newest first by `ended_at` (page size 10). `RecapSummary` = recap without `species[].clip_url/spectrogram_url` and `photos` beyond the first 3; `route` is thinned to ≤ 80 points; `route` and `static_map_url` only if precise. *(Changed 2026-09-26 from "people the viewer follows plus own" and "no route", see docs/CONTRACT_CHANGES.md.)*
 
 `GET /users/{username}` → profile + follower/following counts + `is_following`, `is_friend` + recent walk summaries.
 

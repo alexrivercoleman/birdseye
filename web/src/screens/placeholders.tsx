@@ -1,5 +1,5 @@
 // Placeholder screens. Replace each with its real screen file as it's built (§8).
-// A: Map. C: Feed, Quests, Profile, Search.
+// A: Map. C: Quests, Profile, Search.
 import { useAuth } from '../lib/auth'
 
 function Placeholder({ title, owner }: { title: string; owner: string }) {
@@ -11,7 +11,6 @@ function Placeholder({ title, owner }: { title: string; owner: string }) {
   )
 }
 
-export const FeedScreen = () => <Placeholder title="Feed" owner="C" />
 export const MapScreen = () => <Placeholder title="Community Map" owner="A" />
 export const QuestsScreen = () => <Placeholder title="Quests" owner="C" />
 
