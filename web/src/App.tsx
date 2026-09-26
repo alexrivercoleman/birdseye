@@ -3,7 +3,8 @@ import { NavLink, Navigate, Route, Routes } from 'react-router'
 import { USE_MOCKS } from './api/client'
 import { useAuth } from './lib/auth'
 import { AuthScreen, UsernameScreen } from './screens/AuthScreen'
-import { FeedScreen, MapScreen, ProfileScreen, QuestsScreen } from './screens/placeholders'
+import FeedScreen from './screens/FeedScreen'
+import { MapScreen, ProfileScreen, QuestsScreen } from './screens/placeholders'
 import WalkScreen from './screens/WalkScreen'
 
 const RecapScreen = lazy(() => import('./screens/RecapScreen')) // mapbox-gl is big; load it on demand

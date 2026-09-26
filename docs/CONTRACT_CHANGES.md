@@ -16,6 +16,23 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — GET /feed shows everyone's walks; RecapSummary keeps a thinned route (A, implemented in C's area)
+- What changed:
+  1. `GET /feed` returns **every user's** `complete` walks (was: followed users + own), newest first by `ended_at`,
+     plus the viewer's own walks still `processing`, so a just-finished walk appears at the top immediately.
+     Page size 10; `next_cursor` is `"<ended_at ISO>|<walk_id>"` (malformed cursor → 422).
+     Masking (§7.9) is unchanged: non-friends still get `precise: false`, no route, no locations.
+  2. `RecapSummary` now includes `route` when `precise`, thinned to ≤ 80 points (was: never included).
+     Feed cards draw it as an SVG sketch, since static map images (P3) aren't generated yet.
+  Implemented in `api/app/social/feed.py`, `api/app/routers/social.py`, `api/app/social/recap.py` (`summary=True`).
+- Why: product ask for a Strava-style feed where everyone's walks are visible and the walker lands on the feed
+  (not the recap page) after End Walk. The walk screen now navigates to `/feed` with `{ justFinished: walkId }`;
+  tapping the card opens the full recap.
+- Who needs to update what: C, the feed API and Feed screen (`web/src/screens/FeedScreen.tsx`,
+  `web/src/components/WalkCard.tsx`) are no longer stubs/placeholders; review and take ownership. If follows-only
+  should come back later, it's one `where` clause in `build_feed`. `GET /users/{username}` can reuse
+  `build_recap(..., summary=True)` for `recent_walks`.
+
 ## 2026-09-25 — New endpoint GET /photos/{photo_id} (C, Alexandros)
 - What changed: additive. `GET /photos/{photo_id}` → `{ photo_id, status, species_code, suggestions, url }`, owner only.
   Added to §6, `api/app/schemas.py` (`PhotoDetail`), and `web/src/api` (`PhotoDetail` type, `api.getPhoto`, mock).

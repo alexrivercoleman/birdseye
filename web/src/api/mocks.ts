@@ -57,7 +57,39 @@ export function mockRecap(walk_id = 'mock-walk'): Recap {
   }
 }
 
-export const mockFeed = (): FeedPage => ({ items: [mockRecap('w1'), mockRecap('w2')], next_cursor: null })
+export const mockFeed = (): FeedPage => {
+  const mine = mockRecap('w1')
+  const friend: Recap = {
+    ...mockRecap('w2'),
+    user: { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null },
+    started_at: hoursAgo(20),
+    ended_at: hoursAgo(19),
+    public_area_label: 'Freedom Park, Atlanta',
+    route: [
+      [-84.3525, 33.7648],
+      [-84.3499, 33.7661],
+      [-84.3462, 33.7659],
+      [-84.3431, 33.7672],
+      [-84.3407, 33.7694],
+    ],
+    points: 105,
+    viewer_chirped: true,
+  }
+  const stranger: Recap = {
+    ...mockRecap('w3'),
+    user: { id: 'u3', username: 'owl_out', display_name: null, avatar_url: null },
+    started_at: hoursAgo(30),
+    ended_at: hoursAgo(28.5),
+    precise: false,
+    route: null,
+    species: mockRecap().species.map((s) => ({ ...s, location: null })),
+    public_area_label: 'Sweetwater Creek, Lithia Springs',
+    recap_text: null,
+    chirp_count: 0,
+    comment_count: 0,
+  }
+  return { items: [mine, friend, stranger], next_cursor: null }
+}
 
 export const mockQuests = (): UserQuest[] => [
   {
