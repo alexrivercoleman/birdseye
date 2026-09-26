@@ -159,11 +159,12 @@ def test_llm_request_sends_image_location_and_schema(monkeypatch):
 
 
 def test_pipeline_passes_photo_location_date_to_vision(monkeypatch):
-    monkeypatch.setattr(pipeline, "get_settings", lambda: SimpleNamespace(
-        llm_provider="openai", openai_api_key="test", openai_vision_model="gpt-6-astra"))
+    # The shared provider defaults to Meta; it must not disable photo vision.
+    monkeypatch.setenv("LLM_PROVIDER", "meta")
+    monkeypatch.setattr(pipeline.db, "connect", Mock(side_effect=AssertionError("Photo suggestions must not query audio detections")))
     identify = Mock(return_value=CANDIDATES)
     monkeypatch.setattr(vision, "identify", identify)
-    assert pipeline._suggest("walk", b"photo", "image/jpeg", lat=33.75, lng=-84.39, captured_at=ON) == CANDIDATES
+    assert pipeline._suggest(b"photo", "image/jpeg", lat=33.75, lng=-84.39, captured_at=ON) == CANDIDATES
     identify.assert_called_once_with(b"photo", "image/jpeg", lat=33.75, lng=-84.39, captured_at=ON)
 
 
@@ -184,3 +185,43 @@ def test_identify_runs_ebird_after_visual_classification(monkeypatch):
     monkeypatch.setattr(vision, "rerank_candidates", rerank)
     assert vision.identify(b"photo", "image/jpeg", lat=33.75, lng=-84.39, captured_at=ON) == [CANDIDATES[0]]
     assert events == ["llm", "ebird"]
+
+
+@pytest.mark.parametrize("failure", [
+    ValueError("Set OPENAI_API_KEY and OPENAI_VISION_MODEL to enable photo identification"),
+    RuntimeError("Vision service unavailable"),
+])
+def test_photo_failure_never_uses_heard_species(monkeypatch, failure):
+    conn = Mock()
+    photo = {"id": "photo", "storage_path": "walk/photo.jpg", "lat": 33.75, "lng": -84.39, "captured_at": ON}
+    def execute(sql, args):
+        assert "detections" not in sql
+        assert "walk_species" not in sql
+        return SimpleNamespace(fetchone=lambda: photo)
+    conn.execute.side_effect = execute
+    monkeypatch.setattr(pipeline.db, "connect", lambda: nullcontext(conn))
+    monkeypatch.setattr(pipeline.storage, "upload", Mock())
+    monkeypatch.setattr(vision, "identify", Mock(side_effect=failure))
+    pipeline.process_photo("photo", b"image", "image/jpeg")
+    saved = conn.execute.call_args.args[1]
+    assert saved[0].obj == []
+    assert saved[1] == "unidentified"
+
+
+def test_photo_processed_without_any_audio_detections(monkeypatch):
+    conn = Mock()
+    photo = {"id": "photo", "storage_path": "walk/photo.jpg", "lat": 33.75, "lng": -84.39, "captured_at": ON}
+    def execute(sql, args):
+        # There is no detections table or walk species data in this fixture.
+        assert "detections" not in sql and "walk_species" not in sql
+        return SimpleNamespace(fetchone=lambda: photo)
+    conn.execute.side_effect = execute
+    monkeypatch.setattr(pipeline.db, "connect", lambda: nullcontext(conn))
+    monkeypatch.setattr(pipeline.storage, "upload", Mock())
+    identify = Mock(return_value=CANDIDATES)
+    monkeypatch.setattr(vision, "identify", identify)
+    pipeline.process_photo("photo", b"image", "image/jpeg")
+    identify.assert_called_once_with(b"image", "image/jpeg", lat=33.75, lng=-84.39, captured_at=ON)
+    saved = conn.execute.call_args.args[1]
+    assert saved[0].obj == CANDIDATES
+    assert saved[1] == "needs_confirmation"

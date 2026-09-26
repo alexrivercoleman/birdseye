@@ -260,7 +260,8 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
         </p>
       )}
 
-      <ul className="mt-6 space-y-2">
+      <h2 className="mt-6 text-sm font-semibold text-paper/70">Birds heard</h2>
+      <ul className="mt-2 space-y-2">
         {species.length === 0 && <li className="py-8 text-center text-paper/50">Listening for birds…</li>}
         {species.map((s) => (
           <li

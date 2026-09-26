@@ -17,7 +17,6 @@ Photo uploads now run this backend sequence:
 Set these in `api/.env` on the backend (never in frontend environment variables):
 
 ```dotenv
-LLM_PROVIDER=openai
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_VISION_MODEL=gpt-6-astra
 EBIRD_API_KEY=your-ebird-api-key
@@ -43,9 +42,15 @@ three species suggestions. Logs include the number of candidates matched by the
 eBird check. HEIC/HEIF must be converted before this vision call; unsupported
 formats or failed LLM requests leave the photo `unidentified`.
 
-Without OpenAI configuration the original heard-on-this-walk fallback remains.
+Photo identification always uses OpenAI, independently of `LLM_PROVIDER` and
+BirdNET. It does not read audio detections or require a bird call first. Missing
+OpenAI configuration or a failed classifier leaves the photo `unidentified` and
+logs the error; it never substitutes birds heard on the walk.
 Without an eBird key, re-ranking is skipped (taxonomy must already be populated).
 An eBird outage retains the LLM-derived suggestions and original confidence values.
+
+Existing photos retain their previously saved suggestions. After deploying this
+change, take a new photo to exercise the independent classifier.
 
 ## Location and season evidence
 
