@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { Link, NavLink, Navigate, Route, Routes } from 'react-router'
 import { USE_MOCKS } from './api/client'
 import birdLogo from './assets/logo/bird.png'
 import wordmark from './assets/logo/wordmark.png'
@@ -31,7 +31,9 @@ export default function App() {
     <div className="flex h-full flex-col pt-[env(safe-area-inset-top)]">
       {USE_MOCKS && <div className="bg-rare px-3 py-1 text-center text-xs font-semibold text-bark">MOCK API</div>}
       <header className="flex items-center justify-between border-b border-forest/10 px-4 py-1.5">
-        <img src={wordmark} alt="Birdseye" className="h-11 w-auto" />
+        <Link to="/walk" aria-label="Birdseye home" className="active:scale-95">
+          <img src={wordmark} alt="Birdseye" className="h-11 w-auto" />
+        </Link>
         <NavLink
           to="/profile"
           aria-label="Profile"
