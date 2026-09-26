@@ -117,7 +117,9 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 **chirps** — `walk_id`, `user_id`, PK(`walk_id`, `user_id`).
 
-**comments** — `id`, `walk_id`, `user_id`, `body` (≤ 500 chars).
+**comments** — `id`, `walk_id`, `user_id`, `parent_id` null (a top-level comment on the same walk; replies are one level deep), `body` (≤ 500 chars).
+
+**comment_likes** — `comment_id`, `user_id`, PK(`comment_id`, `user_id`). *(Replies and comment likes added 2026-09-26, see docs/CONTRACT_CHANGES.md.)*
 
 ### Walks
 
@@ -162,7 +164,7 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 ### RLS summary
 - `profiles`: readable by any authenticated user; writable by owner.
-- `follows`, `chirps`, `comments`: readable by authenticated users; insert/delete own rows only.
+- `follows`, `chirps`, `comments`, `comment_likes`: readable by authenticated users; insert/delete own rows only. `chirps`, `comments`, `comment_likes` are in the realtime publication (live feed).
 - `detections` (for the live walk-screen realtime subscription): owner can select.
 - Every other table: **no client access**; FastAPI uses the service role and applies masking (§7.9).
 
@@ -426,7 +428,7 @@ async def vision_json(system: str, image_bytes: bytes, mime: str, user: str) -> 
 - On `GET /map/community`, if any 0.05° cell of the bbox isn't in `trail_fetch_cells` (and ≤ 6 are missing), fetch from Overpass: named ways with `highway` in (`path`, `footway`, `track`, `bridleway`, `cycleway`), minus `footway=sidewalk` and `foot=no`, plus the member ways of `route=hiking` relations. `cycleway` is there because multi-use trails (BeltLine, PATH) are tagged that way. Same-name ways (ignoring case) within ~50 m are grouped into one trail (`group_id`). Public Overpass 504s often: a live request tries once and then skips Overpass for 60 s; `api/scripts/prefetch_trails.py` prefetches the demo areas with retries.
 - Trail species = detections within **75 m** of any way in the trail group (`ST_DWithin`) in the last 90 days from complete walks, excluding anomalies, grouped by species, ranked by distinct walks. Every trail in the bbox is returned (up to 300, most species first); ones with 0 species are drawn thin and grey so people can see where nobody has listened yet.
 - Heat = the same detections, weight = distinct (walk, species) per ~250 m cell. Anomalies (one per walk + species, last 90 days) are shown fuzzed like bounties, with a fuzz seeded by the detection id so repeated requests can't be averaged back to the true spot.
-- UI (`web/src/components/CommunityMap.tsx`, on the idle Walk screen behind the Start Walk button): trails drawn as lines, thickness/color by species total; tapping one opens a bottom sheet with top species (tier badges). Plus bounty circles, anomaly circles (fuzzed like bounties), and a detection heatmap toggle. Outside mock mode, the sample trails in `web/src/api/sampleMap.ts` are drawn on top of the API's trails for demos (`VITE_MAP_SAMPLES=false` turns them off).
+- UI (`web/src/components/CommunityMap.tsx`, on the idle Walk screen behind the Start Walk button): trails drawn as lines, thickness/color by species total; tapping one opens a bottom sheet with top species (tier badges). Plus bounty circles, anomaly circles (fuzzed like bounties), and a detection heatmap toggle. For demos, ~6 months of simulated Atlanta birding (`scripts/seed/sample_map.py` → `web/public/sample-map.json`, loaded by `web/src/api/sampleMap.ts`) is drawn on top of the API's data, and is the whole map in mock mode (`VITE_MAP_SAMPLES=false` turns it off). It never touches the database.
 
 ---
 
@@ -438,7 +440,7 @@ Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Walk · Q
 2. **Walk (idle)** — big "Start Walk" button, active quests preview, nearby bounties.
 3. **Walk (active)** — timer, distance, species count, live list of detected species (newest on top, tier badge, subtle pulse animation when a new bird is heard), camera button, "End Walk". Mic/wake-lock status indicator. Warn if the upload queue is backing up.
 4. **Photo confirm sheet** — photo + suggestion chips.
-5. **Recap** — stats header; Mapbox map with route and pins (distinct icon for heard vs. photographed vs. both; color by tier; tapping a pin scrolls to the species); species list sorted rare → common with play button + spectrogram; photo gallery; AI recap text; quest progress; bounties claimed/created; chirp + comments.
+5. **Recap** — stats header; Mapbox map with route and pins (distinct icon for heard vs. photographed vs. both; color by tier; tapping a pin scrolls to the species); species list sorted rare → common with play button + spectrogram; photo gallery; AI recap text; quest progress; bounties claimed/created; chirp + comments. End Walk lands here ("Walk complete"). On your own completed walks, **Share to Instagram** draws a 1080×1920 story card in the browser (`web/src/lib/storyCard.ts`: route map, stats, top birds) and hands it to the OS share sheet (Web Share API; pick Instagram → Story), or a Strava-style transparent **sticker** (title, route + bird pins with no map, distance, time, 3 rarest birds) copied to the clipboard to paste onto a story photo. Instagram's Sharing to Stories API is native-only, so web can't place a movable sticker; desktop gets "Save image".
 6. **Feed** (C) — cards: user, area label, stats, static map (if precise), top 3 species, first photo, recap text snippet, chirp/comment counts.
 7. **Community Map** (C, taken over from A) — lives on the idle Walk screen for now, see §7.13.
 8. **Quests** (C) — 5 monthly nests on top (the week's first claimed quest lays an egg; footprints walk to the next nest; pixel-art sprites in `web/src/assets/pixel/`). Filling all 5 brings up a big egg over a white glow that the user taps until it cracks for 500 XP; quest cards with progress bars and XP; completed ones are covered by a CLAIM REWARD button; bounties near you; leaderboards (Local / Friends toggle).

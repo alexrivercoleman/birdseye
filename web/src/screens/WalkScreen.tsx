@@ -221,7 +221,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
     }
     saveWalk(null)
     onDone()
-    navigate('/feed', { state: { justFinished: walk.walkId } })
+    navigate(`/walks/${walk.walkId}`, { state: { justFinished: true } }) // the walk summary, with Share to Instagram
   }
 
   const elapsed = (now - Date.parse(walk.startedAt)) / 1000

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 import * as mocks from './mocks'
-import { isSampleTrail, sampleTrailSpecies } from './sampleMap'
+import { isSampleTrail, loadSamples, samplesIn, sampleTrailSpecies } from './sampleMap'
 import type {
   CommunityMap,
   FeedPage,
@@ -100,9 +100,11 @@ export const api = {
 
   // Community map
   communityMap: (bbox: [number, number, number, number]) =>
-    USE_MOCKS ? mock(mocks.mockCommunityMap()) : request<CommunityMap>(`/map/community?bbox=${bbox.join(',')}`),
+    USE_MOCKS
+      ? loadSamples().then((s) => samplesIn(s, bbox))
+      : request<CommunityMap>(`/map/community?bbox=${bbox.join(',')}`),
   trailSpecies: (trailId: string) =>
     USE_MOCKS || isSampleTrail(trailId)
-      ? mock(sampleTrailSpecies(trailId))
+      ? sampleTrailSpecies(trailId)
       : request<TrailSpecies>(`/trails/${trailId}/species`),
 }

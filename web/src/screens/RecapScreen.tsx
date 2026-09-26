@@ -1,16 +1,22 @@
-// §8 screen 5: walk recap. Polls while the finish pipeline runs.
+// §8 screen 5: walk recap, and the summary End Walk lands on. Polls while the finish pipeline runs. The walker can
+// share it as an Instagram story once it's complete.
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router'
+import { useLocation, useParams } from 'react-router'
 import { api } from '../api/client'
 import type { Recap, RecapSpecies } from '../api/types'
 import { RecapMap } from '../components/RecapMap'
+import { ShareStorySheet } from '../components/ShareStorySheet'
 import { TierBadge } from '../components/TierBadge'
+import { useAuth } from '../lib/auth'
 import { formatDate, formatDistance, formatDuration, formatTime } from '../lib/format'
 
 export default function RecapScreen() {
   const { walkId } = useParams()
   const [recap, setRecap] = useState<Recap | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const { profile } = useAuth()
+  const justFinished = !!(useLocation().state as { justFinished?: boolean } | null)?.justFinished
 
   useEffect(() => {
     let alive = true
@@ -37,10 +43,12 @@ export default function RecapScreen() {
 
   if (!recap) return <p className="p-6 text-bark/60">{error ?? 'Loading…'}</p>
   const processing = recap.status !== 'complete'
+  const mine = !!profile && profile.id === recap.user.id
 
   return (
     <div className="pb-8">
       <header className="px-5 pb-4 pt-5">
+        {justFinished && <p className="mb-1 text-sm font-bold uppercase tracking-wider text-moss">Walk complete</p>}
         <p className="text-sm text-bark/60">
           {recap.user.display_name ?? recap.user.username} · {formatDate(recap.started_at)} · {formatTime(recap.started_at)}
         </p>
@@ -51,7 +59,16 @@ export default function RecapScreen() {
           <Stat label="Species" value={String(recap.species_count)} />
           <Stat label="Points" value={String(recap.points)} highlight />
         </div>
+        {mine && !processing && (
+          <button
+            onClick={() => setSharing(true)}
+            className="mt-4 w-full rounded-2xl bg-gradient-to-r from-[#f58529] via-[#dd2a7b] to-[#8134af] py-3.5 font-bold text-white shadow-sm active:brightness-95"
+          >
+            Share to Instagram
+          </button>
+        )}
       </header>
+      {sharing && <ShareStorySheet recap={recap} onClose={() => setSharing(false)} />}
 
       {processing && (
         <p className="mx-5 mb-4 animate-pulse rounded-xl bg-fern/20 px-4 py-3 text-sm text-forest">
