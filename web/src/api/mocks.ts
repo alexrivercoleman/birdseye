@@ -1,5 +1,4 @@
 import type { Comment } from '../lib/social'
-import { SAMPLE_HEAT, SAMPLE_TRAILS } from './sampleMap'
 import type {
   FeedPage, LeaderboardRow, NearbyBounty, NestHatched, NestStatus, QuestClaimed, Recap, UserQuest,
 } from './types'
