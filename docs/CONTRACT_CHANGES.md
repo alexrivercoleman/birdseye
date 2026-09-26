@@ -16,6 +16,21 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — Comment replies, comment likes, realtime chirps/comments (A, in C's migrations)
+- What changed (§5), migration `20260926200000_comment_replies_likes.sql`:
+  - `comments.parent_id` uuid null → `comments.id`, on delete cascade. Replies are **one level deep**: a trigger
+    rejects a `parent_id` that isn't a top-level comment on the same walk. Replying to a reply = same `parent_id`.
+  - New table `comment_likes` (`comment_id`, `user_id`, PK both, `created_at`). RLS like `chirps`: authenticated
+    can read; insert/delete own rows.
+  - `chirps`, `comments`, `comment_likes` added to the `supabase_realtime` publication.
+  No §6 change: `comment_count` in recaps still counts every comment, replies included.
+- Why: feed chirps, comments, comment likes and replies, live across users. The client does all of this directly
+  against Supabase (§3), in `web/src/lib/social.ts`; the feed card UI is `web/src/components/CommentSection.tsx`.
+- Who needs to update what: **apply the migration** (`npx supabase db push`, or paste it into the SQL editor), or
+  comment likes/replies fail and nothing updates live. Seed script (C): comments can now have `parent_id` and
+  `comment_likes` rows. Client embeds of `profiles` from `comments` need the FK hint
+  `profiles!comments_user_id_fkey` because `comment_likes` makes the relationship ambiguous for PostgREST.
+
 ## 2026-09-26 — Community map is real: trail groups, MultiLineString trails, Overpass cache (C, Alexandros)
 - What changed:
   - §5: `trails.group_id` bigint (every OSM way of one named trail shares it: the group's smallest `osm_id`). New

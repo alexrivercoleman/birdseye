@@ -19,6 +19,16 @@ export function formatDate(iso: string | null | undefined): string {
   return iso ? new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) : ''
 }
 
+/** Instagram-style age: "now", "5m", "3h", "2d", "4w". */
+export function formatAgo(iso: string): string {
+  const s = (Date.now() - Date.parse(iso)) / 1000
+  if (s < 60) return 'now'
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  if (s < 86_400) return `${Math.floor(s / 3600)}h`
+  if (s < 604_800) return `${Math.floor(s / 86_400)}d`
+  return `${Math.floor(s / 604_800)}w`
+}
+
 /** Downscale to ≤ maxEdge px on the long edge, re-encode as JPEG (§7.1). */
 export async function downscaleImage(file: File, maxEdge = 1600): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
