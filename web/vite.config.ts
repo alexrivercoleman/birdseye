@@ -16,7 +16,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: { maximumFileSizeToCacheInBytes: 4 * 1024 * 1024 }, // mapbox-gl chunk
-      includeAssets: ['icon.svg'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Birdseye',
         short_name: 'Birdseye',
@@ -25,8 +25,12 @@ export default defineConfig({
         start_url: '/',
         background_color: '#f7f3ea',
         theme_color: '#1f3d2b',
-        // TODO(A): add 192/512 PNG icons + apple-touch-icon (iOS ignores SVG for home screen)
-        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+        // the bird logo on paper; apple-touch-icon.png (index.html) is the iOS home screen icon
+        icons: [
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
       },
     }),
   ],
