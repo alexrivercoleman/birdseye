@@ -2,10 +2,11 @@
 // - renderStoryCard: a full 1080×1920 card. Instagram's own UI covers roughly the top 230 px (profile bar) and bottom
 //   200 px (reply bar), so everything sits between. The map matches RecapMap (lib/mapView), drawn at 2×. Shared
 //   through the OS share sheet (Web Share API), since Instagram's Stories API is native-only.
-// - renderSticker: Strava-style transparent PNG (title, route + bird pins with no map, distance, time, 3 rarest birds)
-//   to copy and paste onto a story photo as a movable sticker.
+// - renderSticker: Strava-style transparent PNG (title, route + bird pins with no map, distance/time/species, 3 rarest
+//   birds) in Fredoka, to copy and paste onto a story photo as a movable sticker.
 import type { Recap, RecapSpecies, Tier } from '../api/types'
 import bird from '../assets/logo/bird.png'
+import fredokaUrl from '../assets/fonts/Fredoka.woff2'
 import wordmark from '../assets/logo/wordmark.png'
 import { TIER_COLORS } from '../components/TierBadge'
 import { formatDate, formatDistance, formatDuration, formatTime } from './format'
@@ -72,26 +73,38 @@ const STICKER_CHIP: Record<Tier, [string, string]> = {
   uncommon: [TIER_COLORS.uncommon, C.white],
   common: ['#6f756f', C.white],
 }
+// Rounded, friendly Fredoka echoes the hand-drawn lettering of the logo (SIL Open Font License, bundled)
+const DISPLAY = `Fredoka, ${FONT}`
+let fredoka: Promise<unknown> | null = null
+const loadFredoka = () =>
+  (fredoka ??= new FontFace('Fredoka', `url(${fredokaUrl})`, { weight: '300 700' })
+    .load()
+    .then((f) => document.fonts.add(f))
+    .catch(() => null)) // falls back to the system font
 
 export async function renderSticker(recap: Recap): Promise<Blob> {
+  await loadFredoka()
   const route = recap.route ?? []
   const pins = recap.species.filter((s) => s.location)
   const coords: [number, number][] = [...route, ...pins.map((s): [number, number] => [s.location!.lng, s.location!.lat])]
   const top = rarest(recap)
-  const ROUTE = { w: 820, h: 560 }
-  const height = 130 + (coords.length ? ROUTE.h + 40 : 0) + 170 + top.length * 72 + 130
+  const ROUTE = { w: 820, h: 540 }
+  const height = 140 + (coords.length ? ROUTE.h + 44 : 0) + 150 + (top.length ? 64 + top.length * 70 : 0) + 140
   const canvas = document.createElement('canvas')
   canvas.width = SW
   canvas.height = height
   const ctx = canvas.getContext('2d')!
-  await document.fonts?.ready
   // one soft shadow under everything, so white reads on any photo
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'
-  ctx.shadowBlur = 14
-  ctx.shadowOffsetY = 2
+  const shadow = () => {
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+    ctx.shadowBlur = 16
+    ctx.shadowOffsetY = 3
+  }
+  shadow()
 
-  text(ctx, recap.public_area_label ?? 'Bird walk', SW / 2, 96, 60, C.white, { weight: 800, align: 'center', maxWidth: SW - 80 })
-  let y = 130
+  const title = { weight: 600, align: 'center' as const, maxWidth: SW - 80, spacing: 1, font: DISPLAY }
+  text(ctx, recap.public_area_label ?? 'Bird walk', SW / 2, 104, 68, C.white, title)
+  let y = 140
 
   if (coords.length) {
     const x0 = (SW - ROUTE.w) / 2
@@ -120,44 +133,65 @@ export async function renderSticker(recap: Recap): Promise<Blob> {
       ctx.fillStyle = TIER_COLORS[s.rarity_tier]
       ctx.fill()
     }
-    y += ROUTE.h + 40
+    y += ROUTE.h + 44
   }
 
+  // distance | time | species, field-guide style: big rounded numbers, small wide-spaced labels, hairline dividers
   const stats: [string, string][] = [
     ['Distance', formatDistance(recap.distance_m)],
     ['Time', formatDuration(recap.duration_s)],
+    ['Species', String(recap.species_count)],
   ]
+  const colW = 290
   stats.forEach(([label, value], i) => {
-    const cx = SW / 2 + (i ? 210 : -210)
-    text(ctx, value, cx, y + 80, 80, C.white, { weight: 800, align: 'center', maxWidth: 400 })
-    text(ctx, label.toUpperCase(), cx, y + 124, 26, C.white, { weight: 700, align: 'center', spacing: 4 })
+    const cx = SW / 2 + (i - 1) * colW
+    let size = 68
+    ctx.font = `600 ${size}px ${DISPLAY}`
+    while (size > 44 && ctx.measureText(value).width > colW - 50) ctx.font = `600 ${(size -= 2)}px ${DISPLAY}`
+    text(ctx, value, cx, y + 76, size, C.white, { weight: 600, align: 'center', font: DISPLAY })
+    text(ctx, label.toUpperCase(), cx, y + 118, 23, 'rgba(255, 255, 255, 0.92)', { weight: 500, align: 'center', spacing: 6, font: DISPLAY })
+    if (i) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+      ctx.fillRect(cx - colW / 2 - 1, y + 22, 2, 100)
+    }
   })
-  y += 170
+  y += 150
 
-  for (const s of top) {
-    const chip = s.rarity_tier.toUpperCase()
-    ctx.font = `700 24px ${FONT}`
-    const chipW = ctx.measureText(chip).width + 40
-    ctx.font = `600 46px ${FONT}`
-    const nameW = Math.min(ctx.measureText(s.common_name).width, SW - 80 - chipW - 18)
-    const x = (SW - nameW - 18 - chipW) / 2
-    text(ctx, s.common_name, x, y + 52, 46, C.white, { weight: 600, maxWidth: nameW + 1 })
-    const [bg, fg] = STICKER_CHIP[s.rarity_tier]
-    roundRect(ctx, x + nameW + 18, y + 14, chipW, 46, 23, bg)
-    ctx.save()
-    ctx.shadowColor = 'transparent'
-    text(ctx, chip, x + nameW + 18 + chipW / 2, y + 46, 24, fg, { weight: 700, align: 'center', spacing: 2 })
-    ctx.restore()
-    y += 72
+  if (top.length) {
+    // a small dotted rule, then the rarest birds
+    ctx.fillStyle = C.white
+    for (const dx of [-28, 0, 28]) {
+      ctx.beginPath()
+      ctx.arc(SW / 2 + dx, y + 26, 5, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    y += 64
+    for (const s of top) {
+      const chip = s.rarity_tier.toUpperCase()
+      ctx.font = `600 21px ${DISPLAY}`
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '3px'
+      const chipW = ctx.measureText(chip).width + 36
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
+      ctx.font = `500 46px ${DISPLAY}`
+      const nameW = Math.min(ctx.measureText(s.common_name).width, SW - 80 - chipW - 20)
+      const x = (SW - nameW - 20 - chipW) / 2
+      text(ctx, s.common_name, x, y + 46, 46, C.white, { weight: 500, maxWidth: nameW + 1, font: DISPLAY })
+      const [bg, fg] = STICKER_CHIP[s.rarity_tier]
+      roundRect(ctx, x + nameW + 20, y + 10, chipW, 42, 21, bg)
+      ctx.shadowColor = 'transparent'
+      text(ctx, chip, x + nameW + 20 + chipW / 2, y + 39, 21, fg, { weight: 600, align: 'center', spacing: 3, font: DISPLAY })
+      shadow()
+      y += 70
+    }
   }
 
   // wordmark on a small paper pill: its greens vanish on leafy photos otherwise
   const logo = await loadImage(wordmark)
   const lh = 64
   const lw = (logo.width * lh) / logo.height
-  roundRect(ctx, SW / 2 - lw / 2 - 26, y + 26, lw + 52, lh + 24, (lh + 24) / 2, 'rgba(247, 243, 234, 0.94)')
+  roundRect(ctx, SW / 2 - lw / 2 - 26, y + 28, lw + 52, lh + 24, (lh + 24) / 2, 'rgba(247, 243, 234, 0.94)')
   ctx.shadowColor = 'transparent'
-  ctx.drawImage(logo, SW / 2 - lw / 2, y + 38, lw, lh)
+  ctx.drawImage(logo, SW / 2 - lw / 2, y + 40, lw, lh)
   return toPng(canvas)
 }
 
@@ -236,10 +270,10 @@ function speciesRow(ctx: CanvasRenderingContext2D, s: RecapSpecies, y: number) {
   text(ctx, chip, cx + chipW / 2, y - 5, 22, fg, { weight: 700, align: 'center', spacing: 2 })
 }
 
-type TextOpts = { weight?: number; align?: CanvasTextAlign; maxWidth?: number; spacing?: number }
+type TextOpts = { weight?: number; align?: CanvasTextAlign; maxWidth?: number; spacing?: number; font?: string }
 /** Draws one line (ellipsized to maxWidth); returns its width. */
 function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, size: number, color: string, o: TextOpts = {}) {
-  ctx.font = `${o.weight ?? 400} ${size}px ${FONT}`
+  ctx.font = `${o.weight ?? 400} ${size}px ${o.font ?? FONT}`
   ctx.fillStyle = color
   ctx.textAlign = o.align ?? 'left'
   ctx.textBaseline = 'alphabetic'
