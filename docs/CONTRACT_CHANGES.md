@@ -56,13 +56,17 @@ Format:
   - §7.10: new optional finish step after step 9, before `complete`, so the recap's polling picks summaries up.
     One LLM call per walk for species without a summary (`app/llm/species_summary.py`); `rescore_walk` fills in
     species added by a late photo confirm. Failure leaves `summary` null and never fails the walk.
+  - `GET /walks/{id}`: when a complete walk still has species with `summary: null` (finished by an API without
+    this code, or the LLM call failed), it schedules a background fill (at most one try per walk per 5 min), and
+    the recap screen re-polls for ~30 s. So a walk's summaries can appear after it is already `complete`.
   - §7.12: first piece of `app/llm/`: `provider.complete_json(system, user)` (sync). `LLM_PROVIDER=meta` is used
     only when `META_LLM_API_KEY/BASE_URL/TEXT_MODEL` are all set; otherwise OpenAI. `OPENAI_TEXT_MODEL` blank =
     `gpt-5.4-mini`.
 - Why: product ask: a paragraph about each bird, with local rarity, next to its name on the recap (which is also
   where feed cards open).
 - Who needs to update what: the Vultr `api/.env` needs `OPENAI_API_KEY`. C: the AI walk recap (§7.11) and quest
-  text can reuse `complete_json`. Seed script (C): `summary` can stay null for seeded walks.
+  text can reuse `complete_json`. Seed script (C): `summary` can stay null for seeded walks; they get filled the
+  first time someone opens them.
 
 ## 2026-09-26 — Comment replies, comment likes, realtime chirps/comments (A, in C's migrations)
 - What changed (§5), migration `20260926200000_comment_replies_likes.sql`:
