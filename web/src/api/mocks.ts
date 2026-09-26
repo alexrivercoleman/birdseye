@@ -1,4 +1,4 @@
-import type { CommunityMap, FeedPage, LeaderboardRow, NearbyBounty, Recap, UserQuest } from './types'
+import type { CommunityMap, FeedPage, LeaderboardRow, NearbyBounty, NestStatus, QuestClaimed, Recap, UserQuest } from './types'
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
 const daysFromNow = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString()
@@ -59,18 +59,27 @@ export function mockRecap(walk_id = 'mock-walk'): Recap {
 
 export const mockFeed = (): FeedPage => ({ items: [mockRecap('w1'), mockRecap('w2')], next_cursor: null })
 
-export const mockQuests = (): UserQuest[] => [
-  {
-    id: 'q1', template: 'hear_family', params: { family_com_name: 'Woodpeckers', n: 3 }, title: 'Knock Knock',
-    flavor_text: 'Three different woodpeckers are drumming in your area. Track them down by ear.',
-    target: 3, progress: 1, reward_points: 60, starts_at: hoursAgo(24), ends_at: daysFromNow(6), completed_at: null,
-  },
-  {
-    id: 'q2', template: 'dawn_chorus', params: { n: 5, before_hour: 8 }, title: 'Early Bird',
-    flavor_text: 'Catch five voices in the dawn chorus before 8 AM.',
-    target: 5, progress: 0, reward_points: 50, starts_at: hoursAgo(24), ends_at: daysFromNow(6), completed_at: null,
-  },
-]
+// Stateful for the session so claiming works: two quests start complete, 3 of 5 nests are filled.
+const mockQuestList: UserQuest[] = [
+  { template: 'trail_distance', params: { miles: 5 }, title: 'Walk 5 miles on a nature trail', target: 8047, progress: 5150, reward_points: 150 },
+  { template: 'discover_family', params: { family_com_name: 'Woodpeckers', n: 3 }, title: 'Discover 3 species of woodpecker', target: 3, progress: 3, reward_points: 100 },
+  { template: 'photo_species', params: { species_code: 'brnthr' }, title: 'Photograph a Brown Thrasher', target: 1, progress: 1, reward_points: 75 },
+].map((q, i) => ({
+  ...q, id: `q${i + 1}`, template: q.template as UserQuest['template'], flavor_text: null,
+  starts_at: hoursAgo(24), ends_at: daysFromNow(6),
+  completed_at: q.progress >= q.target ? hoursAgo(2) : null, claimed_at: null,
+}))
+const mockNestState: NestStatus = { month: new Date().toISOString().slice(0, 7), total: 5, filled: 3, laid_this_week: false }
+
+export const mockQuests = (): UserQuest[] => mockQuestList.filter((q) => !q.claimed_at)
+export const mockNests = (): NestStatus => ({ ...mockNestState })
+export function mockClaim(questId: string): QuestClaimed {
+  const q = mockQuestList.find((x) => x.id === questId)!
+  q.claimed_at = new Date().toISOString()
+  const egg_laid = !mockNestState.laid_this_week && mockNestState.filled < mockNestState.total
+  if (egg_laid) Object.assign(mockNestState, { filled: mockNestState.filled + 1, laid_this_week: true })
+  return { points_awarded: q.reward_points, egg_laid, nests: mockNests() }
+}
 
 export const mockBounties = (): NearbyBounty[] => [
   {

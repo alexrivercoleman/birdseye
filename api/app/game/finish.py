@@ -14,6 +14,7 @@ import logging
 import shutil
 import time
 from collections.abc import Callable
+from datetime import datetime, timezone
 
 import httpx
 import psycopg
@@ -21,6 +22,7 @@ import psycopg
 from app import db
 from app.audio.pipeline import forget_walk, walk_tmp_dir
 from app.config import get_settings
+from app.game.quests import refresh_progress
 from app.game.scoring import apply_walk_scores
 
 log = logging.getLogger(__name__)
@@ -39,10 +41,11 @@ def run_finish(walk_id: str) -> None:
             conn.commit()
             _optional(conn, "clips", lambda: _make_clips(conn, walk_id))  # 5
             apply_walk_scores(conn, walk, stats["centroid"])     # 6
-            # 7 bounties (§7.6), 8 quest progress (§7.7): TODO (P1)
+            # 7 bounties (§7.6): TODO (P1)
             _optional(conn, "public area", lambda: _public_area(conn, walk_id, stats))  # 9
             # 10 static map (P3), 11 AI recap (P2): TODO
             _complete(conn, walk, stats)                          # 12
+            _optional(conn, "quests", lambda: _quests(conn, walk))  # 8: after 12, it only counts complete walks
         except Exception:
             # Never leave a walk stuck in "processing": the recap screen would spin forever.
             log.exception("finish pipeline failed for walk %s; marking complete with partial data", walk_id)
@@ -61,8 +64,9 @@ def rescore_walk(walk_id: str) -> None:
         _build_walk_species(conn, walk_id)
         _assign_tiers(conn, walk, stats)
         apply_walk_scores(conn, walk, stats["centroid"])
-        # 7 bounties, 8 quests: TODO (P1)
+        # 7 bounties: TODO (P1)
         _update_walk_points(conn, walk_id)
+        _optional(conn, "quests", lambda: _quests(conn, walk))
 
 
 # ---- steps ----------------------------------------------------------------
@@ -286,6 +290,11 @@ def _complete(conn: psycopg.Connection, walk: dict, stats: dict) -> None:
         """,
         (walk["id"],),
     )
+
+
+def _quests(conn: psycopg.Connection, walk: dict) -> None:
+    now = datetime.now(timezone.utc)
+    refresh_progress(conn, str(walk["user_id"]), now)
 
 
 def _update_walk_points(conn: psycopg.Connection, walk_id: str) -> None:

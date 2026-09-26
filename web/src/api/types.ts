@@ -99,6 +99,9 @@ export type QuestTemplate =
   | 'dawn_chorus'
   | 'tier_hunt'
   | 'distance_species'
+  | 'trail_distance' // target/progress in meters
+  | 'discover_family'
+  | 'photo_species'
 
 export type UserQuest = {
   id: string
@@ -112,7 +115,12 @@ export type UserQuest = {
   starts_at: string
   ends_at: string
   completed_at: string | null
+  claimed_at: string | null
 }
+
+export type NestStatus = { month: string; total: number; filled: number; laid_this_week: boolean }
+
+export type QuestClaimed = { points_awarded: number; egg_laid: boolean; nests: NestStatus }
 
 export type NearbyBounty = {
   bounty_id: string

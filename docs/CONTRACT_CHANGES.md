@@ -16,6 +16,23 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — Quest claims, monthly nests, 3-tab nav (C, Alexandros)
+- What changed:
+  - §5: `user_quests.claimed_at` (timestamptz null); templates `trail_distance` (params `miles`; target/progress in
+    meters), `discover_family` (`family_com_name`, `n`), `photo_species` (`species_code`, `common_name`); unique
+    (`user_id`, `template`, `starts_at`). New table `quest_nests` (`user_id`, `week_start` date, `month` date,
+    `quest_id`, PK(`user_id`, `week_start`)). Migration `20260926120000_quest_claims_nests.sql`.
+  - §6: `UserQuest` gains `claimed_at`. `GET /quests/me` returns unclaimed quests (completed-but-unclaimed ones stay
+    past `ends_at`). New `GET /quests/nests` → `{ month, total, filled, laid_this_week }` and
+    `POST /quests/{id}/claim` → `{ points_awarded, egg_laid, nests }` (404 not yours, 409 incomplete/claimed).
+  - §7.5/§7.7: quest points are paid on claim, not on completion. Every user gets the same 3 example quests per local
+    week (Mon–Mon) for now. The first claim of a week lays an egg in one of 5 nests for that month.
+    `trail_distance` counts track segments within 40 m of a cached trail, or anywhere with no trail data within 1 km.
+  - §8: tab bar is Feed · Walk · Quests; profile opens from an avatar in the header.
+- Why: Pokémon GO-style field research with a claim step and monthly stamp-card nests.
+- Who needs to update what: run the migration (`npx supabase db push`). Anyone generating quests later should
+  replace `WEEKLY_QUESTS` in `api/app/game/quests.py`. Recap `quests_progressed` is still empty (TODO).
+
 ## 2026-09-25 — New endpoint GET /photos/{photo_id} (C, Alexandros)
 - What changed: additive. `GET /photos/{photo_id}` → `{ photo_id, status, species_code, suggestions, url }`, owner only.
   Added to §6, `api/app/schemas.py` (`PhotoDetail`), and `web/src/api` (`PhotoDetail` type, `api.getPhoto`, mock).

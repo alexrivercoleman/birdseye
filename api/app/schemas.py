@@ -173,7 +173,10 @@ class UserProfile(BaseModel):
 
 class UserQuest(BaseModel):
     id: str
-    template: Literal["hear_family", "photo_family", "species_in_walk", "dawn_chorus", "tier_hunt", "distance_species"]
+    template: Literal[
+        "hear_family", "photo_family", "species_in_walk", "dawn_chorus", "tier_hunt", "distance_species",
+        "trail_distance", "discover_family", "photo_species",
+    ]
     params: dict[str, Any]
     title: str
     flavor_text: str | None = None
@@ -183,6 +186,20 @@ class UserQuest(BaseModel):
     starts_at: datetime
     ends_at: datetime
     completed_at: datetime | None = None
+    claimed_at: datetime | None = None
+
+
+class NestStatus(BaseModel):
+    month: str  # "YYYY-MM", user's local month
+    total: int  # nests per month (5)
+    filled: int
+    laid_this_week: bool
+
+
+class QuestClaimed(BaseModel):
+    points_awarded: int
+    egg_laid: bool
+    nests: NestStatus
 
 
 class NearbyBounty(BaseModel):

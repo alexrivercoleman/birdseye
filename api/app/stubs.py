@@ -59,26 +59,6 @@ def recap(walk_id: str | None = None) -> s.Recap:
     )
 
 
-def quests() -> list[s.UserQuest]:
-    return [
-        s.UserQuest(
-            id=str(uuid.uuid4()), template="hear_family", params={"family_com_name": "Woodpeckers", "n": 3},
-            title="Knock Knock", flavor_text="Three different woodpeckers are drumming in your area. Track them down by ear.",
-            target=3, progress=1, reward_points=60, starts_at=NOW - timedelta(days=1), ends_at=NOW + timedelta(days=6),
-        ),
-        s.UserQuest(
-            id=str(uuid.uuid4()), template="dawn_chorus", params={"n": 5, "before_hour": 8},
-            title="Early Bird", flavor_text="Catch five voices in the dawn chorus before 8 AM.",
-            target=5, progress=0, reward_points=50, starts_at=NOW - timedelta(days=1), ends_at=NOW + timedelta(days=6),
-        ),
-        s.UserQuest(
-            id=str(uuid.uuid4()), template="tier_hunt", params={"tier": "uncommon"},
-            title="Off the Beaten Path", flavor_text="Something unusual is out there. Hear an uncommon bird.",
-            target=1, progress=0, reward_points=40, starts_at=NOW - timedelta(days=1), ends_at=NOW + timedelta(days=6),
-        ),
-    ]
-
-
 def bounties() -> list[s.NearbyBounty]:
     return [
         s.NearbyBounty(

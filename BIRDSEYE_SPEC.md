@@ -141,7 +141,9 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 **bounty_claims** — `bounty_id`, `user_id`, `detection_id`, PK(`bounty_id`, `user_id`).
 
-**user_quests** — `id`, `user_id`, `template` (see §7.7), `params` jsonb, `title`, `flavor_text`, `target` int, `progress` int, `reward_points`, `starts_at`, `ends_at`, `completed_at` null.
+**user_quests** — `id`, `user_id`, `template` (see §7.7), `params` jsonb, `title`, `flavor_text`, `target` int, `progress` int, `reward_points`, `starts_at`, `ends_at`, `completed_at` null, `claimed_at` null.
+
+**quest_nests** — `user_id`, `week_start` (local Monday), `month` (local first-of-month), `quest_id`, PK(`user_id`, `week_start`). One egg per week, max 5 per month.
 
 ### Reference / cache
 
@@ -235,7 +237,11 @@ Follow/unfollow, chirp/unchirp, and comments go **directly to Supabase** from th
 
 ### Game
 
-`GET /quests/me` → `[UserQuest]` (active ones; generates new ones if the user has fewer than 3 active).
+`GET /quests/me` → `[UserQuest]` (unclaimed ones, including completed-but-unclaimed; ensures this week's quests exist).
+
+`GET /quests/nests` → `{ month: "YYYY-MM", total: 5, filled, laid_this_week }`
+
+`POST /quests/{id}/claim` → `{ points_awarded, egg_laid, nests }` (404 not yours, 409 not complete or already claimed). Pays `reward_points`; the week's first claim lays an egg.
 
 `GET /bounties/nearby?lat&lng` → `[{ bounty_id, species_code, common_name, center: {lat,lng}, radius_m, expires_at, claimed_by_me }]` (within 25 km).
 
@@ -326,7 +332,7 @@ If eBird is unreachable, default everything to `common` and log. Never block a w
 - Heard and photographed are scored **independently**, so a species both heard and photographed on a walk earns double.
 - Each (user, species, heard/photographed) earns points **at most once per calendar day** (prevents farming via many tiny walks). It still appears in the recap with `points: 0`.
 - **Anomalies earn 0 points unless photo-confirmed** (vision ID matches the anomalous species). Confirmed anomalies earn the rare amount plus a `anomaly_confirmed` bonus of 100.
-- Bounty claim: +50. Quest completion: quest's `reward_points`.
+- Bounty claim: +50. Quest: its `reward_points`, paid when the user claims it.
 - Every award is a row in `points_ledger`; `walks.points` is the sum for that walk.
 
 ### 7.6 Bounties — Workstream C
@@ -340,6 +346,8 @@ If eBird is unreachable, default everything to `common` and log. Never block a w
 ### 7.7 Quests (Pokémon GO field-research style) — Workstream C
 
 Each user has up to **3 active quests**, each lasting 7 days. When fewer than 3 are active, generate more (on `GET /quests/me`).
+
+**Current implementation (2026-09-26):** every user gets the same 3 example quests each local week (`trail_distance` 5 mi, `discover_family` Woodpeckers ×3, `photo_species` Brown Thrasher), see `api/app/game/quests.py`. Completed quests must be claimed (`POST /quests/{id}/claim`) to pay out. The first claim of a week lays an egg in one of 5 monthly nests (`quest_nests`).
 
 Templates:
 
@@ -417,7 +425,7 @@ async def vision_json(system: str, image_bytes: bytes, mime: str, user: str) -> 
 
 ## 8. Frontend screens — Workstream A (walk/recap/map), C (social)
 
-Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Map · Walk · Quests · Profile**. Respect iOS safe areas (`env(safe-area-inset-*)`). Web app manifest with `display: standalone`, icons, and theme color.
+Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Walk · Quests** (app opens on Walk); profile opens from an avatar in the top-right header. Respect iOS safe areas (`env(safe-area-inset-*)`). Web app manifest with `display: standalone`, icons, and theme color.
 
 1. **Auth** — email + password (Supabase `signUp` / `signInWithPassword`), with "Confirm email" turned off so no email is ever sent. Then pick a username. *(Changed from email OTP: templates now require custom SMTP and the built-in sender is limited to a few emails/hour. See docs/CONTRACT_CHANGES.md.)* Don't use magic links: on iOS they open in Safari, not the installed PWA.
 2. **Walk (idle)** — big "Start Walk" button, active quests preview, nearby bounties.
@@ -426,7 +434,7 @@ Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Map · Wa
 5. **Recap** — stats header; Mapbox map with route and pins (distinct icon for heard vs. photographed vs. both; color by tier; tapping a pin scrolls to the species); species list sorted rare → common with play button + spectrogram; photo gallery; AI recap text; quest progress; bounties claimed/created; chirp + comments.
 6. **Feed** (C) — cards: user, area label, stats, static map (if precise), top 3 species, first photo, recap text snippet, chirp/comment counts.
 7. **Community Map** (A) — see §7.13.
-8. **Quests** (C) — active quests with progress bars, Pokémon GO-style cards; bounties near you; leaderboards (Local / Friends toggle).
+8. **Quests** (C) — 5 monthly nests on top (the week's first claimed quest lays an egg; footprints walk to the next nest); quest cards with progress bars and XP; completed ones are covered by a CLAIM REWARD button; bounties near you; leaderboards (Local / Friends toggle).
 9. **Profile** (C) — stats, life list count, recent walks, follow button, **personal QR code** (encodes `https://<app-domain>/u/{username}`), and **"Scan QR"** using an in-app camera scanner (`html5-qrcode` or `jsQR`), since scanning with the iOS Camera app would open Safari instead of the PWA. `/u/{username}` route also works in a browser.
 10. **User search** (C) — username prefix search.
 

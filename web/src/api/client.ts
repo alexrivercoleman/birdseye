@@ -5,7 +5,9 @@ import type {
   FeedPage,
   LeaderboardRow,
   NearbyBounty,
+  NestStatus,
   PhotoDetail,
+  QuestClaimed,
   Recap,
   TrackPoint,
   TrailSpecies,
@@ -83,6 +85,9 @@ export const api = {
 
   // Game
   myQuests: () => (USE_MOCKS ? mock(mocks.mockQuests()) : request<UserQuest[]>('/quests/me')),
+  myNests: () => (USE_MOCKS ? mock(mocks.mockNests()) : request<NestStatus>('/quests/nests')),
+  claimQuest: (questId: string) =>
+    USE_MOCKS ? mock(mocks.mockClaim(questId)) : post<QuestClaimed>(`/quests/${questId}/claim`),
   nearbyBounties: (lat: number, lng: number) =>
     USE_MOCKS ? mock(mocks.mockBounties()) : request<NearbyBounty[]>(`/bounties/nearby?lat=${lat}&lng=${lng}`),
   leaderboard: (scope: 'local' | 'friends', lat?: number, lng?: number) =>
