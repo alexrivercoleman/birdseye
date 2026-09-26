@@ -1,16 +1,16 @@
-"""Photo upload processing (§7.8). process_photo runs as a BackgroundTask per uploaded photo.
+"""Photo upload processing: vision identification followed by eBird re-ranking.
 
-Vision ID is P2. Until app.photos.vision exists, suggestions are the species heard so far on this walk
-(confidence null), so the confirm sheet already works. Workstream B hook:
-    app.photos.vision.identify(walk_id: str, image: bytes, mime: str) -> list[dict]
-        top 3 [{species_code, common_name, confidence}] or [] if no bird is clearly visible.
+With OpenAI configured, use the photo's own location/date for identification and
+validation. Otherwise retain the heard-on-this-walk suggestions for demos.
 """
 
 import logging
+from datetime import datetime
 
 from psycopg.types.json import Jsonb
 
 from app import db, storage
+from app.config import get_settings
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +23,10 @@ def ext_for(mime: str) -> str:
 
 def process_photo(photo_id: str, image: bytes, mime: str) -> None:
     with db.connect() as conn:
-        photo = conn.execute("select id, walk_id, storage_path from photos where id = %s", (photo_id,)).fetchone()
+        photo = conn.execute(
+            "select id, walk_id, storage_path, captured_at,"
+            " ST_Y(geog::geometry) lat, ST_X(geog::geometry) lng from photos where id = %s", (photo_id,),
+        ).fetchone()
     walk_id = str(photo["walk_id"])
     stored = True
     try:
@@ -32,7 +35,9 @@ def process_photo(photo_id: str, image: bytes, mime: str) -> None:
         log.exception("photo %s: storage upload failed", photo_id)
         stored = False
     try:
-        suggestions = _suggest(walk_id, image, mime)
+        suggestions = _suggest(
+            walk_id, image, mime, lat=photo["lat"], lng=photo["lng"], captured_at=photo["captured_at"],
+        )
     except Exception:
         log.exception("photo %s: identification failed", photo_id)
         suggestions = []
@@ -49,13 +54,14 @@ def process_photo(photo_id: str, image: bytes, mime: str) -> None:
         )
 
 
-def _suggest(walk_id: str, image: bytes, mime: str) -> list[dict]:
-    try:
-        from app.photos.vision import identify  # Workstream B (P2)
-    except ImportError:
-        pass
-    else:
-        return identify(walk_id, image, mime)
+def _suggest(
+    walk_id: str, image: bytes, mime: str, *, lat: float | None = None,
+    lng: float | None = None, captured_at: datetime | None = None,
+) -> list[dict]:
+    settings = get_settings()
+    if settings.llm_provider == "openai" and settings.openai_api_key and settings.openai_vision_model:
+        from app.photos.vision import identify
+        return identify(image, mime, lat=lat, lng=lng, captured_at=captured_at)
     with db.connect() as conn:
         rows = conn.execute(
             "select species_code, min(common_name) common_name from detections where walk_id = %s"
