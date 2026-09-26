@@ -1,6 +1,5 @@
 // §8 screen 9: a birder's profile. /profile is your own, /u/:username anyone's (also works from a shared link).
-// Avatar, name, level + title with XP progress, bio, stats, follow button, and recent walks (masked per viewer,
-// §7.9: exact routes only for mutual follows). Follower/following counts open the lists. Your own profile adds your
+// Avatar, name, level + title with XP progress, bio, stats, follow button, and recent walks. Follower/following counts open the lists. Your own profile adds your
 // QR code (top right), Edit profile, Find birders, and Sign out.
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
@@ -152,13 +151,6 @@ export default function ProfileScreen() {
                   disabled={followBusy}
                   className="w-full"
                 />
-                <p className="mt-2 text-center text-xs text-bark/50">
-                  {data.is_friend
-                    ? 'You follow each other, so you see each other’s exact routes.'
-                    : data.is_following
-                      ? 'You’ll see their exact routes once they follow you back.'
-                      : 'Friends (mutual follows) see each other’s exact routes.'}
-                </p>
               </div>
             )}
           </>

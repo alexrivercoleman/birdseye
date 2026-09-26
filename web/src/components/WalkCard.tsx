@@ -65,8 +65,6 @@ export function WalkCard({
             <img src={walk.static_map_url} alt="Walk route" className="block w-full" />
           ) : walk.precise && walk.route && walk.route.length > 1 ? (
             <StaticRouteMap route={walk.route} pins={pins} />
-          ) : !walk.precise ? (
-            <p className="px-4 text-xs text-bark/50">Exact route is visible to friends only.</p>
           ) : null}
         </div>
 

@@ -16,6 +16,14 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — Everyone sees every walk's map (C, Alexandros)
+- What changed: §7.9. `build_recap` returns `precise: true` for every viewer, so `GET /walks/{id}`, `GET /feed` and
+  profile `recent_walks` always include the route, species/photo locations and static map (was owner or mutual
+  follows only). The `precise` field stays in the response, always true.
+- Why: product ask: show the map on every walk.
+- Who needs to update what: nobody. The web app already draws the map when `precise` is true; the "friends only"
+  notes on feed cards and profiles are gone. Redeploy the API.
+
 ## 2026-09-26 — Bird call clips, and clip_url on feed cards (A, in B's and C's areas)
 - What changed:
   - §7.3 (B): `app/audio/clips.py` now exists, so the finish pipeline's clip step (step 5) runs. `render_clip` cuts

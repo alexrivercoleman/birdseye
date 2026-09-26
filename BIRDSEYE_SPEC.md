@@ -389,8 +389,7 @@ On photo upload (background):
 ### 7.9 Location privacy & masking — Workstream C
 
 For any walk returned by the API:
-- Viewer is the owner **or** `are_friends(owner, viewer)` → `precise: true`: route, per-species locations, photo locations, static map.
-- Otherwise → `precise: false`: only `public_area_label` and `public_area_geog`. No route, no pins, no static map, no photo locations.
+- Every viewer gets `precise: true`: route, per-species locations, photo locations, static map. (Was owner or `are_friends(owner, viewer)` only; changed 2026-09-26, see docs/CONTRACT_CHANGES.md.)
 - `public_area_label` comes from Mapbox reverse geocoding of the walk centroid (neighborhood or locality); `public_area_geog` is the centroid snapped to a 0.02° grid.
 - Community map heat data is aggregated to a ~250 m grid with no user attribution.
 
