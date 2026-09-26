@@ -4,7 +4,7 @@
 // server-generated static map (§7 step 10). Falls back to the plain SVG sketch with no token or if the image fails.
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { LatLng, Tier } from '../api/types'
-import { MAP_STYLE } from '../lib/mapStyle'
+import { MAP_STYLE, MAP_STYLE_VERSION } from '../lib/mapStyle'
 import { RouteSketch } from './RouteSketch'
 import { TIER_COLORS } from './TierBadge'
 
@@ -37,7 +37,7 @@ export function StaticRouteMap({ route, pins }: { route: [number, number][]; pin
       {view && (
         <>
           <img
-            src={`https://api.mapbox.com/styles/v1/${MAP_STYLE}/static/${view.lng.toFixed(6)},${view.lat.toFixed(6)},${view.zoom}/${width}x${HEIGHT}@2x?access_token=${token}`}
+            src={`https://api.mapbox.com/styles/v1/${MAP_STYLE}/static/${view.lng.toFixed(6)},${view.lat.toFixed(6)},${view.zoom}/${width}x${HEIGHT}@2x?v=${MAP_STYLE_VERSION}&access_token=${token}`}
             alt="Walk route"
             loading="lazy"
             onError={() => setFailed(true)}

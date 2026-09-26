@@ -139,4 +139,9 @@ if (process.argv.includes('--upload')) {
   const body = await res.json()
   if (!res.ok) throw new Error(`upload failed ${res.status}: ${JSON.stringify(body).slice(0, 500)}`)
   console.log(`${STYLE_ID ? 'updated' : 'created'} style ${USERNAME}/${body.id}`)
+  // new cache-busting version for the app (see web/src/lib/mapStyle.ts); commit + deploy to ship it
+  const mapStyle = new URL('../src/lib/mapStyle.ts', import.meta.url)
+  const version = body.modified.replace(/\D/g, '').slice(0, 14)
+  writeFileSync(mapStyle, readFileSync(mapStyle, 'utf8').replace(/MAP_STYLE_VERSION = '\d*'/, `MAP_STYLE_VERSION = '${version}'`))
+  console.log(`MAP_STYLE_VERSION = ${version}: commit and deploy web/src/lib/mapStyle.ts`)
 }
