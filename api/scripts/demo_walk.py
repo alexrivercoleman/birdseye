@@ -4,13 +4,16 @@
     python scripts/demo_walk.py            # run, print, delete the demo user
     python scripts/demo_walk.py --keep     # leave the data to browse in Supabase → Table Editor
     python scripts/demo_walk.py --cleanup  # delete every demo user (and their walks, via cascade)
+    python scripts/demo_walk.py --audio    # real audio: fixture clips → 15 s .m4a chunks → POST /chunks → BirdNET
 
-Detections and photos are inserted directly (standing in for B's audio/photo pipelines).
+Default mode inserts detections/photos directly. --audio needs requirements-ml.txt and ffmpeg on PATH.
 Mints a local HS256 token, so it never touches real users. Needs DATABASE_URL in api/.env.
 """
 
 import os
+import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -22,7 +25,7 @@ os.environ["SUPABASE_JWT_SECRET"] = "demo-walk-local-secret-at-least-32-bytes"
 import jwt  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import db  # noqa: E402
+from app import db, storage  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -38,6 +41,13 @@ HEARD = [
 
 
 def cleanup() -> None:
+    with db.connect() as conn:
+        paths = [r["storage_path"] for r in conn.execute(
+            "select c.storage_path from audio_chunks c join walks w on w.id = c.walk_id"
+            " join auth.users u on u.id = w.user_id where u.email like %s and c.storage_path is not null",
+            (f"%@{EMAIL_DOMAIN}",))]
+    if paths:
+        storage.client().storage.from_("audio-chunks").remove(paths)
     with db.connect() as conn:
         n = conn.execute("delete from auth.users where email like %s", (f"%@{EMAIL_DOMAIN}",)).rowcount
     print(f"deleted {n} demo user(s) and their walks")
@@ -75,6 +85,43 @@ def run_walk(client: TestClient, headers: dict, minutes_ago: int, photos: list[t
             )
 
     # TestClient runs the BackgroundTask (the finish pipeline) before returning.
+    client.post(f"/walks/{walk_id}/finish", headers=headers).raise_for_status()
+    return walk_id
+
+
+def run_audio_walk(client: TestClient, headers: dict) -> str:
+    """Upload real fixture audio as Safari-style AAC chunks; BirdNET produces the detections."""
+    fixtures = Path(__file__).resolve().parents[2] / "scripts" / "fixtures"
+    clips = [(fixtures / "carolina_wren.ogg", 0), (fixtures / "carolina_wren.ogg", 15),
+             (fixtures / "northern_cardinal.mp3", 0), (fixtures / "northern_cardinal.mp3", 15)]
+    walk_id = client.post("/walks", headers=headers).json()["walk_id"]
+    t0 = datetime.now(timezone.utc) - timedelta(minutes=5)
+    points = [{"t": (t0 + timedelta(seconds=15 * i)).isoformat(), "lat": PIEDMONT[1] + 0.0003 * i,
+               "lng": PIEDMONT[0] + 0.0002 * i, "accuracy_m": 8} for i in range(len(clips) + 1)]
+    client.post(f"/walks/{walk_id}/track", json={"points": points}, headers=headers).raise_for_status()
+    with db.connect() as conn:
+        conn.execute("update walks set started_at = %s where id = %s", (t0, walk_id))
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, (src, offset) in enumerate(clips):
+            m4a = Path(tmp) / f"{i}.m4a"
+            subprocess.run([get_settings().ffmpeg_bin, "-v", "error", "-y", "-ss", str(offset), "-t", "15", "-i", str(src),
+                            "-c:a", "aac", "-ac", "1", str(m4a)], check=True)
+            r = client.post(f"/walks/{walk_id}/chunks", headers=headers,
+                            files={"file": (m4a.name, m4a.read_bytes(), "audio/mp4")},
+                            data={"chunk_index": i, "started_at": (t0 + timedelta(seconds=15 * i)).isoformat(),
+                                  "duration_s": 15, "mime_type": "audio/mp4"})
+            r.raise_for_status()
+            print(f"   chunk {i}: {src.name} @{offset}s → {r.json()['chunk_id'][:8]}…")
+    with db.connect() as conn:
+        for d in conn.execute("select c.chunk_index, c.status, d.common_name, round(d.confidence::numeric, 2) conf,"
+                              " d.is_anomaly, d.geog is not null located from audio_chunks c"
+                              " left join detections d on d.chunk_id = c.id where c.walk_id = %s"
+                              " order by c.chunk_index, d.detected_at", (walk_id,)):
+            print(f"   chunk {d['chunk_index']} {d['status']:<9} {d['common_name'] or '-':<20} {d['conf'] or ''}"
+                  f"{'  [anomaly]' if d['is_anomaly'] else ''}{'' if d['located'] or not d['common_name'] else '  (no geog)'}")
+        stored = conn.execute("select count(*) n from storage.objects where bucket_id = 'audio-chunks'"
+                              " and name like %s", (f"{walk_id}/%",)).fetchone()["n"]
+    print(f"   {stored} chunk files in Storage")
     client.post(f"/walks/{walk_id}/finish", headers=headers).raise_for_status()
     return walk_id
 
@@ -119,6 +166,10 @@ def main() -> None:
                      (user_id, f"demo_{user_id[:8]}"))
     try:
         client = TestClient(app)
+        if "--audio" in sys.argv:
+            print("\n== Audio walk: uploading chunks")
+            show(run_audio_walk(client, headers), "Audio walk after finish (tiers from eBird)")
+            return
         w1 = run_walk(client, headers, minutes_ago=90, photos=[])
         show(w1, "Walk 1: heard only. Anomaly unconfirmed → 0 pts")
         w2 = run_walk(client, headers, minutes_ago=30, photos=[("paibun", "Painted Bunting"), ("blujay", "Blue Jay")])

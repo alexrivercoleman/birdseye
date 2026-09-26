@@ -1,8 +1,12 @@
 # Audio/ML deps (Workstream B). Kept separate so the stub API runs without them.
-# birdnetlib also needs a TFLite runtime: tflite-runtime (Linux) or tensorflow. Verify against birdnetlib docs.
+# birdnetlib imports tflite_runtime, falling back to tensorflow (verified in birdnetlib 0.18.1 source).
+# Full tensorflow everywhere: tflite-runtime is stuck at 2.14 (NumPy 1.x build, no Windows wheels) and breaks
+# alongside NumPy 2. Tested locally with tensorflow 2.21.
 -r requirements.txt
 birdnetlib
 librosa
+audioread  # birdnetlib imports it; newer librosa no longer depends on it
 resampy
 numpy
 matplotlib
+tensorflow

@@ -5,8 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libsndfi
 
 WORKDIR /srv
 COPY requirements.txt requirements-ml.txt ./
-# Stub-only image: requirements.txt. Switch to requirements-ml.txt once the audio pipeline lands (B).
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-ml.txt
 
 COPY app ./app
 EXPOSE 8000

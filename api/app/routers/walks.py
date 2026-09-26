@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from uuid import UUID
 
 import psycopg
@@ -7,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from app import db
 from app import schemas as s
 from app import stubs
+from app.audio.pipeline import ext_for, process_chunk, walk_tmp_dir
 from app.auth import CurrentUser, get_current_user
 from app.game.finish import run_finish
 
@@ -47,16 +49,38 @@ def add_track(walk_id: UUID, body: s.TrackBatch, user: CurrentUser = Depends(get
 
 
 @router.post("/walks/{walk_id}/chunks", response_model=s.ChunkCreated)
-async def upload_chunk(
-    walk_id: str,
+def upload_chunk(
+    walk_id: UUID,
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     chunk_index: int = Form(...),
-    started_at: str = Form(...),
+    started_at: datetime = Form(...),
     duration_s: float = Form(...),
     mime_type: str = Form(...),
     user: CurrentUser = Depends(get_current_user),
 ):
-    return s.ChunkCreated(chunk_id=str(uuid.uuid4()))  # STUB (B: audio pipeline §7.2)
+    with db.connect() as conn:
+        _require_owner(conn, walk_id, user)
+    # Write the file before inserting the row, so a row never exists without audio (finish waits on it).
+    ext = ext_for(mime_type)
+    tmp = walk_tmp_dir(str(walk_id))
+    tmp.mkdir(parents=True, exist_ok=True)
+    raw = tmp / f"{chunk_index}.upload.{ext}"
+    raw.write_bytes(file.file.read())
+    with db.connect() as conn:
+        row = conn.execute(
+            "insert into audio_chunks (walk_id, chunk_index, started_at, duration_s, storage_path)"
+            " values (%s, %s, %s, %s, %s) on conflict (walk_id, chunk_index) do nothing returning id",
+            (walk_id, chunk_index, started_at, duration_s, f"{walk_id}/{chunk_index}.{ext}"),
+        ).fetchone()
+        if not row:  # client upload-queue retry of a chunk we already have
+            raw.unlink(missing_ok=True)
+            existing = conn.execute(
+                "select id from audio_chunks where walk_id = %s and chunk_index = %s", (walk_id, chunk_index)
+            ).fetchone()
+            return s.ChunkCreated(chunk_id=str(existing["id"]))
+    background.add_task(process_chunk, str(row["id"]), str(raw), mime_type)
+    return s.ChunkCreated(chunk_id=str(row["id"]))
 
 
 @router.post("/walks/{walk_id}/photos", response_model=s.PhotoCreated)

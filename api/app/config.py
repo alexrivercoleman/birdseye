@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     min_conf: float = 0.6
     anomaly_conf: float = 0.85
+    audio_tmp_dir: str = "/tmp/birdseye"  # chunk WAVs live here until the walk finishes (§7.2 step 9)
+    ffmpeg_bin: str = "ffmpeg"
     default_lat: float = 33.749
     default_lng: float = -84.388
 

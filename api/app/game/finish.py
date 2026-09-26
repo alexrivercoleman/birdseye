@@ -14,19 +14,18 @@ import logging
 import shutil
 import time
 from collections.abc import Callable
-from pathlib import Path
 
 import httpx
 import psycopg
 
 from app import db
+from app.audio.pipeline import forget_walk, walk_tmp_dir
 from app.config import get_settings
 from app.game.scoring import apply_walk_scores
 
 log = logging.getLogger(__name__)
 
 PENDING_TIMEOUT_S = 60
-AUDIO_TMP = Path("/tmp/birdseye")  # §7.2 step 9: B keeps chunk WAVs here until finish
 
 
 def run_finish(walk_id: str) -> None:
@@ -49,7 +48,8 @@ def run_finish(walk_id: str) -> None:
             log.exception("finish pipeline failed for walk %s; marking complete with partial data", walk_id)
             conn.rollback()
             conn.execute("update walks set status = 'complete' where id = %s", (walk_id,))
-    shutil.rmtree(AUDIO_TMP / walk_id, ignore_errors=True)
+    shutil.rmtree(walk_tmp_dir(walk_id), ignore_errors=True)
+    forget_walk(walk_id)
 
 
 def rescore_walk(walk_id: str) -> None:
