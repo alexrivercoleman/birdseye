@@ -9,6 +9,7 @@ export type UserRef = {
   username: string
   display_name: string | null
   avatar_url: string | null
+  xp: number // lifetime points; level + title come from web/src/lib/levels.ts
 }
 
 export type TrackPoint = { t: string; lat: number; lng: number; accuracy_m: number | null }
@@ -86,6 +87,9 @@ export type UserSearchResult = UserRef & { is_following: boolean }
 
 export type UserProfile = {
   user: UserRef
+  bio: string | null
+  walk_count: number
+  life_list_count: number // distinct species across the user's completed walks
   follower_count: number
   following_count: number
   is_following: boolean

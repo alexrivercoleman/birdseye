@@ -16,6 +16,29 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — XP + levels, profile bio/avatar, real profile + search endpoints (C, Alexandros)
+- What changed:
+  - §5, migration `20260926220000_xp_profiles.sql`: `profiles.xp` int (lifetime sum of `points_ledger`, kept in sync
+    by a trigger on ledger insert/update/delete; backfilled) and `profiles.bio` text (≤ 160). Clients can no longer
+    write `xp`, `last_lat`, `last_lng` (column privileges; the API sets those). New public bucket `avatars`: users
+    upload to `<user id>/…`, and `avatar_url` holds the public URL.
+  - §6: `UserRef` gains `xp` everywhere (recap/feed `user`, search results, leaderboards once real). Level and title
+    are derived from `xp` on the client (`web/src/lib/levels.ts`; curve and titles in §7.5). `GET /users/{username}` is
+    real and its shape is now `{ user, bio, walk_count, life_list_count, follower_count, following_count,
+    is_following, is_friend, recent_walks }` (404 if unknown). `GET /users/search` is real: username prefix or the
+    start of a word in the display name, viewer excluded.
+  - §8: Profile screen (`web/src/screens/ProfileScreen.tsx`) and Search screen (`/search`, magnifier in the header).
+    The header avatar shows the level; a toast celebrates level-ups. Follows go straight to Supabase
+    (`setFollow` in `web/src/lib/social.ts`). Names on feed cards, comments and the recap header link to the profile
+    and carry the level pill. Follower/following lists at `/u/{username}/followers|following` read `follows` +
+    `profiles` straight from Supabase (no new endpoint). `/qr` shows your profile QR code (`qrcode`) and scans friends'
+    codes in-app (`jsQR`).
+- Why: points needed somewhere to go; social P1 (follows, search, profile, QR codes).
+- Who needs to update what: migration **applied** to Supabase (2026-09-26). Both the API and the web app read
+  `profiles.xp`, so redeploy the Vultr API. Leaderboards (C) should select `p.xp` into `UserRef`.
+  A: `RecapScreen`'s header now links the walker's name and shows their level (small edit in your file).
+  Seed script (C): set `bio` and `avatar_url` on fake users. `xp` fills itself from their ledger rows.
+
 ## 2026-09-26 — Tier points are now 10 / 20 / 50 (A, in C's scoring)
 - What changed: §7.5 tier amounts: common 10, uncommon **20** (was 25), rare **50** (was 75), for heard and for
   photographed alike. Everything else is unchanged: heard and photographed still score independently, once per

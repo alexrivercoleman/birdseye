@@ -20,7 +20,7 @@ def build_recap(conn: psycopg.Connection, walk_id: str, viewer_id: str, summary:
         """
         select w.id, w.user_id, w.status, w.started_at, w.ended_at, w.distance_m, w.duration_s, w.species_count,
                w.points, w.recap_text, w.static_map_path, w.public_area_label,
-               p.username, p.display_name, p.avatar_url,
+               p.username, p.display_name, p.avatar_url, p.xp,
                (w.user_id = %(v)s or are_friends(w.user_id, %(v)s)) as precise,
                (select count(*) from chirps where walk_id = w.id) as chirp_count,
                (select count(*) from comments where walk_id = w.id) as comment_count,
@@ -75,7 +75,7 @@ def build_recap(conn: psycopg.Connection, walk_id: str, viewer_id: str, summary:
     return s.Recap(
         walk_id=str(w["id"]),
         user=s.UserRef(id=str(w["user_id"]), username=w["username"], display_name=w["display_name"],
-                       avatar_url=w["avatar_url"]),
+                       avatar_url=w["avatar_url"], xp=w["xp"]),
         status=w["status"],
         started_at=w["started_at"],
         ended_at=w["ended_at"],

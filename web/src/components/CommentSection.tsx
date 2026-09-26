@@ -1,10 +1,12 @@
 // Instagram-style comments under a feed card: newest top-level comments first, "View more comments" pages in older
 // ones, and each thread's replies collapse behind "View N replies". Replying to a reply stays in the same thread.
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { useAuth } from '../lib/auth'
 import { formatAgo } from '../lib/format'
 import { fetchComments, postComment, setCommentLike, subscribeComments, type Comment } from '../lib/social'
 import { Avatar } from './Avatar'
+import { LevelTag } from './LevelTag'
 
 const FIRST_PAGE = 3
 const MORE_PAGE = 5
@@ -218,7 +220,10 @@ function CommentRow({
       </span>
       <div className="min-w-0 flex-1">
         <p className="break-words text-sm leading-snug">
-          <span className="mr-1.5 font-semibold">{c.user.username}</span>
+          <Link to={`/u/${c.user.username}`} className="mr-1.5 font-semibold">
+            {c.user.username}
+          </Link>
+          <LevelTag xp={c.user.xp} className="mr-1.5 align-[1px]" />
           {c.body.split(/(@[a-z0-9_]{3,20})/).map((part, i) =>
             i % 2 ? (
               <span key={i} className="text-uncommon">

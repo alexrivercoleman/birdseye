@@ -6,7 +6,19 @@ import type {
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
 const daysFromNow = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString()
 
-export const demoUser = { id: 'u1', username: 'demo_birder', display_name: 'Demo Birder', avatar_url: null }
+export const mockBirders = [
+  { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null, xp: 13200, is_following: true },
+  { id: 'u3', username: 'owl_out', display_name: null, avatar_url: null, xp: 52000, is_following: false },
+  { id: 'u4', username: 'beltline_birds', display_name: 'Priya S.', avatar_url: null, xp: 640, is_following: true },
+  { id: 'u5', username: 'kestrel_kid', display_name: 'Sam Okafor', avatar_url: null, xp: 25500, is_following: false },
+]
+
+export function mockFollowList(username: string, kind: 'followers' | 'following') {
+  const list = kind === 'followers' ? mockBirders : mockBirders.filter((u) => u.is_following)
+  return { user: { ...demoUser, username }, list }
+}
+
+export const demoUser = { id: 'u1', username: 'demo_birder', display_name: 'Demo Birder', avatar_url: null, xp: 1240 }
 
 export function mockRecap(walk_id = 'mock-walk'): Recap {
   return {
@@ -67,8 +79,8 @@ export function mockRecap(walk_id = 'mock-walk'): Recap {
 
 export function mockComments(walk_id: string): Comment[] {
   if (walk_id === 'w3') return []
-  const wren = { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null }
-  const owl = { id: 'u3', username: 'owl_out', display_name: null, avatar_url: null }
+  const wren = { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null, xp: 13200 }
+  const owl = { id: 'u3', username: 'owl_out', display_name: null, avatar_url: null, xp: 52000 }
   const c = (id: string, user: Comment['user'], body: string, h: number, parent_id: string | null = null, likers: string[] = []) =>
     ({ id: `${walk_id}-${id}`, walk_id, parent_id: parent_id && `${walk_id}-${parent_id}`, body, created_at: hoursAgo(h), user, likers })
   return [
@@ -86,7 +98,7 @@ export const mockFeed = (): FeedPage => {
   const mine = mockRecap('w1')
   const friend: Recap = {
     ...mockRecap('w2'),
-    user: { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null },
+    user: { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null, xp: 13200 },
     started_at: hoursAgo(20),
     ended_at: hoursAgo(19),
     public_area_label: 'Freedom Park, Atlanta',
@@ -102,7 +114,7 @@ export const mockFeed = (): FeedPage => {
   }
   const stranger: Recap = {
     ...mockRecap('w3'),
-    user: { id: 'u3', username: 'owl_out', display_name: null, avatar_url: null },
+    user: { id: 'u3', username: 'owl_out', display_name: null, avatar_url: null, xp: 52000 },
     started_at: hoursAgo(30),
     ended_at: hoursAgo(28.5),
     precise: false,
@@ -151,7 +163,7 @@ export const mockBounties = (): NearbyBounty[] => [
 ]
 
 export const mockLeaderboard = (): LeaderboardRow[] => [
-  { rank: 1, user: { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null }, points: 640 },
+  { rank: 1, user: { id: 'u2', username: 'wren_hunter', display_name: 'Wren Hunter', avatar_url: null, xp: 13200 }, points: 640 },
   { rank: 2, user: demoUser, points: 415 },
 ]
 

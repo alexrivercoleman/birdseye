@@ -7,6 +7,7 @@ import { api } from '../api/client'
 import type { NestStatus, UserQuest } from '../api/types'
 import nestImg from '../assets/pixel/nest.png'
 import eggImg from '../assets/pixel/egg.png'
+import { useAuth } from '../lib/auth'
 
 // egg-0 (whole) … egg-4 (badly cracked), egg-5 (breaking open); all the same canvas
 const EGG_FRAMES = Object.entries(
@@ -24,6 +25,7 @@ const CRACK_MS = 350 // how long the breaking-open frame shows before the egg di
 const isFull = (n: NestStatus | null) => !!n && n.filled >= n.total && !n.hatched
 
 export default function QuestsScreen() {
+  const { reloadProfile } = useAuth() // claims and hatches add XP; a reload shows it (and any level-up)
   const [quests, setQuests] = useState<UserQuest[] | null>(null)
   const [nests, setNests] = useState<NestStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -52,6 +54,7 @@ export default function QuestsScreen() {
       setNests(res.nests)
       setDropEgg(res.egg_laid)
       if (res.egg_laid && isFull(res.nests)) setTimeout(() => setHatchOpen(true), EGG_DROP_MS)
+      else void reloadProfile()
     } catch (e) {
       setError(`Couldn't claim: ${e}`)
     } finally {
@@ -85,7 +88,13 @@ export default function QuestsScreen() {
       </section>
 
       {hatchOpen && (
-        <HatchOverlay onHatched={setNests} onClose={() => setHatchOpen(false)} />
+        <HatchOverlay
+          onHatched={setNests}
+          onClose={() => {
+            setHatchOpen(false)
+            void reloadProfile()
+          }}
+        />
       )}
 
       <section>

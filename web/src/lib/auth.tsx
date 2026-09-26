@@ -6,9 +6,11 @@ import { demoUser } from '../api/mocks'
 import type { UserRef } from '../api/types'
 import { supabase } from './supabase'
 
+export type MyProfile = UserRef & { bio: string | null }
+
 type AuthState = {
   session: Session | null
-  profile: UserRef | null
+  profile: MyProfile | null
   loading: boolean
   reloadProfile: () => Promise<void>
   signOut: () => Promise<void>
@@ -18,17 +20,18 @@ const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<UserRef | null>(null)
+  const [profile, setProfile] = useState<MyProfile | null>(null)
   const [loading, setLoading] = useState(!USE_MOCKS)
 
   const loadProfile = useCallback(async (s: Session | null) => {
     if (!s) return setProfile(null)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url')
+      .select('id, username, display_name, avatar_url, xp, bio')
       .eq('id', s.user.id)
       .maybeSingle()
-    setProfile(data)
+    // A failed reload (flaky network) keeps the profile we have; only "no row" means pick a username.
+    if (!error) setProfile(data)
   }, [])
 
   useEffect(() => {
@@ -45,13 +48,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe()
   }, [loadProfile])
 
+  const reloadProfile = useCallback(() => loadProfile(session), [loadProfile, session])
+
   const value: AuthState = USE_MOCKS
-    ? { session: {} as Session, profile: demoUser, loading: false, reloadProfile: async () => {}, signOut: async () => {} }
+    ? {
+        session: {} as Session,
+        profile: { ...demoUser, bio: 'Dawn chorus regular at Piedmont Park. Still chasing a Pileated photo.' },
+        loading: false,
+        reloadProfile: async () => {},
+        signOut: async () => {},
+      }
     : {
         session,
         profile,
         loading,
-        reloadProfile: () => loadProfile(session),
+        reloadProfile,
         signOut: async () => {
           await supabase.auth.signOut()
         },

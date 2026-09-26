@@ -18,6 +18,7 @@ class UserRef(BaseModel):
     username: str
     display_name: str | None = None
     avatar_url: str | None = None
+    xp: int = 0  # lifetime points; the client derives level + title (added 2026-09-26, docs/CONTRACT_CHANGES.md)
 
 
 # ---- Walk lifecycle -------------------------------------------------------
@@ -163,6 +164,9 @@ class UserSearchResult(UserRef):
 
 class UserProfile(BaseModel):
     user: UserRef
+    bio: str | None = None
+    walk_count: int
+    life_list_count: int  # distinct species across the user's completed walks
     follower_count: int
     following_count: int
     is_following: bool

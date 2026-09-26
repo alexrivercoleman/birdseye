@@ -1,9 +1,9 @@
-// Chirps, comments and comment likes go straight to Supabase (§3; RLS: insert/delete own rows only), with realtime
+// Follows, chirps, comments and comment likes go straight to Supabase (§3; RLS: insert/delete own rows only), with realtime
 // so every viewer's feed updates live. Replies are one level deep: parent_id is always a top-level comment.
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { USE_MOCKS } from '../api/client'
-import { mockComments } from '../api/mocks'
-import type { UserRef } from '../api/types'
+import { mockComments, mockFollowList } from '../api/mocks'
+import type { UserRef, UserSearchResult } from '../api/types'
 import { supabase } from './supabase'
 
 export type Comment = {
@@ -18,7 +18,7 @@ export type Comment = {
 
 // comment_likes makes profiles↔comments many-to-many too, so the author embed needs the FK hint.
 const COMMENT_SELECT =
-  'id, walk_id, parent_id, body, created_at, user:profiles!comments_user_id_fkey(id, username, display_name, avatar_url), comment_likes(user_id)'
+  'id, walk_id, parent_id, body, created_at, user:profiles!comments_user_id_fkey(id, username, display_name, avatar_url, xp), comment_likes(user_id)'
 
 type CommentRow = Omit<Comment, 'likers'> & { comment_likes: { user_id: string }[] }
 const toComment = ({ comment_likes, ...c }: CommentRow): Comment => ({ ...c, likers: comment_likes.map((l) => l.user_id) })
@@ -28,6 +28,47 @@ const topic = (name: string) => `${name}-${Math.random().toString(36).slice(2)}`
 
 const ignoreDuplicate = (error: { code?: string } | null) => {
   if (error && error.code !== '23505') throw error
+}
+
+export async function setFollow(followerId: string, followeeId: string, on: boolean) {
+  if (USE_MOCKS) return
+  const row = { follower_id: followerId, followee_id: followeeId }
+  const { error } = on ? await supabase.from('follows').insert(row) : await supabase.from('follows').delete().match(row)
+  ignoreDuplicate(error)
+}
+
+export type FollowListKind = 'followers' | 'following'
+
+const FOLLOW_EMBED: Record<FollowListKind, [string, string]> = {
+  followers: ['followee_id', 'user:profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, xp)'],
+  following: ['follower_id', 'user:profiles!follows_followee_id_fkey(id, username, display_name, avatar_url, xp)'],
+}
+
+/** Who follows @username, or whom they follow, newest first, each marked with whether the viewer follows them.
+ *  null if there's no such user. */
+export async function fetchFollowList(
+  username: string,
+  kind: FollowListKind,
+  viewerId: string,
+): Promise<{ user: UserRef; list: UserSearchResult[] } | null> {
+  if (USE_MOCKS) return mockFollowList(username, kind)
+  const { data: user, error } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url, xp')
+    .eq('username', username.toLowerCase())
+    .maybeSingle()
+  if (error) throw error
+  if (!user) return null
+  const [column, embed] = FOLLOW_EMBED[kind]
+  const [rows, mine] = await Promise.all([
+    supabase.from('follows').select(embed).eq(column, user.id).order('created_at', { ascending: false }).limit(1000),
+    supabase.from('follows').select('followee_id').eq('follower_id', viewerId).limit(5000),
+  ])
+  if (rows.error) throw rows.error
+  if (mine.error) throw mine.error
+  const followed = new Set(mine.data.map((r) => r.followee_id as string))
+  const list = (rows.data as unknown as { user: UserRef }[]).map(({ user: u }) => ({ ...u, is_following: followed.has(u.id) }))
+  return { user: user as UserRef, list }
 }
 
 export async function setChirp(walkId: string, userId: string, on: boolean) {
@@ -73,7 +114,7 @@ function getProfile(id: string): Promise<UserRef | null> {
     profiles.set(
       id,
       Promise.resolve(
-        supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', id).maybeSingle(),
+        supabase.from('profiles').select('id, username, display_name, avatar_url, xp').eq('id', id).maybeSingle(),
       ).then(({ data }) => data as UserRef | null),
     )
   }

@@ -1,9 +1,10 @@
 // §8 screen 5: walk recap, and the summary End Walk lands on. Polls while the finish pipeline runs. The walker can
 // share it as an Instagram story once it's complete.
 import { useEffect, useState } from 'react'
-import { useLocation, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { api } from '../api/client'
 import type { Recap, RecapSpecies } from '../api/types'
+import { LevelTag } from '../components/LevelTag'
 import { RecapMap } from '../components/RecapMap'
 import { ShareStorySheet } from '../components/ShareStorySheet'
 import { TierBadge } from '../components/TierBadge'
@@ -49,8 +50,14 @@ export default function RecapScreen() {
     <div className="pb-8">
       <header className="px-5 pb-4 pt-5">
         {justFinished && <p className="mb-1 text-sm font-bold uppercase tracking-wider text-moss">Walk complete</p>}
-        <p className="text-sm text-bark/60">
-          {recap.user.display_name ?? recap.user.username} · {formatDate(recap.started_at)} · {formatTime(recap.started_at)}
+        <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-bark/60">
+          <Link to={`/u/${recap.user.username}`} className="font-semibold text-bark/80">
+            {recap.user.display_name ?? recap.user.username}
+          </Link>
+          <LevelTag xp={recap.user.xp} />
+          <span>
+            · {formatDate(recap.started_at)} · {formatTime(recap.started_at)}
+          </span>
         </p>
         <h1 className="text-2xl font-bold text-forest">{recap.public_area_label ?? 'Walk recap'}</h1>
         <div className="mt-4 grid grid-cols-4 gap-2 text-center">

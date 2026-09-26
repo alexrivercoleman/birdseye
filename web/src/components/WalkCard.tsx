@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import type { RecapSummary, UserRef } from '../api/types'
 import { formatDate, formatDistance, formatDuration, formatTime } from '../lib/format'
 import { CommentSection } from './CommentSection'
+import { LevelTag } from './LevelTag'
 import { StaticRouteMap } from './StaticRouteMap'
 import { TierBadge } from './TierBadge'
 
@@ -28,16 +29,19 @@ export function WalkCard({
 
   return (
     <article className={`overflow-hidden rounded-3xl bg-white shadow-sm ${highlight ? 'ring-2 ring-fern' : ''}`}>
+      <Link to={`/u/${walk.user.username}`} className="flex items-center gap-3 px-4 pt-4 active:opacity-90">
+        <Avatar user={walk.user} />
+        <div className="min-w-0">
+          <p className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-semibold">{walk.user.display_name ?? walk.user.username}</span>
+            <LevelTag xp={walk.user.xp} />
+          </p>
+          <p className="truncate text-xs text-bark/60">
+            {formatDate(walk.started_at)} · {formatTime(walk.started_at)}
+          </p>
+        </div>
+      </Link>
       <Link to={`/walks/${walk.walk_id}`} className="block pb-3 active:opacity-90">
-        <header className="flex items-center gap-3 px-4 pt-4">
-          <Avatar user={walk.user} />
-          <div className="min-w-0">
-            <p className="truncate font-semibold">{walk.user.display_name ?? walk.user.username}</p>
-            <p className="truncate text-xs text-bark/60">
-              {formatDate(walk.started_at)} · {formatTime(walk.started_at)}
-            </p>
-          </div>
-        </header>
 
         <h2 className="px-4 pt-3 text-lg font-bold text-forest">{walk.public_area_label ?? 'Walk'}</h2>
 

@@ -107,7 +107,7 @@ All `geog` columns are `geography(Point, 4326)` unless noted. All tables have `c
 
 ### Social
 
-**profiles** — `id` (PK, = `auth.users.id`), `username` (unique, lowercase, 3–20 chars `[a-z0-9_]`), `display_name`, `avatar_url`, `last_lat`, `last_lng` (updated on each walk, used for local leaderboard/quests).
+**profiles** — `id` (PK, = `auth.users.id`), `username` (unique, lowercase, 3–20 chars `[a-z0-9_]`), `display_name`, `avatar_url` (public URL in the `avatars` bucket), `bio` (≤ 160 chars), `xp` (lifetime sum of `points_ledger`, kept in sync by a trigger; not client-writable), `last_lat`, `last_lng` (updated on each walk, used for local leaderboard/quests). *(`bio`, `xp` added 2026-09-26, see docs/CONTRACT_CHANGES.md.)*
 
 **follows** — `follower_id`, `followee_id`, PK(`follower_id`, `followee_id`). Asymmetric.
 
@@ -160,10 +160,10 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 **trail_fetch_cells** — `cell` text PK (`"lat_index:lng_index"` on a 0.05° grid), `fetched_at`. Overpass fetches cached per cell, including cells with no trails.
 
 ### Storage buckets
-`audio-chunks` (private), `clips` (private, signed URLs), `spectrograms` (private, signed URLs), `photos` (private, signed URLs), `static-maps` (private).
+`audio-chunks` (private), `clips` (private, signed URLs), `spectrograms` (private, signed URLs), `photos` (private, signed URLs), `static-maps` (private), `avatars` (public read; users write under their own `<user id>/` folder).
 
 ### RLS summary
-- `profiles`: readable by any authenticated user; writable by owner.
+- `profiles`: readable by any authenticated user; writable by owner, except `xp`, `last_lat`, `last_lng` (column privileges).
 - `follows`, `chirps`, `comments`, `comment_likes`: readable by authenticated users; insert/delete own rows only. `chirps`, `comments`, `comment_likes` are in the realtime publication (live feed).
 - `detections` (for the live walk-screen realtime subscription): owner can select.
 - Every other table: **no client access**; FastAPI uses the service role and applies masking (§7.9).
@@ -203,7 +203,7 @@ Waits for pending chunks/photos (poll DB up to ~60 s), then runs the finish pipe
 ```json
 {
   "walk_id": "...",
-  "user": { "id": "...", "username": "...", "display_name": "...", "avatar_url": "..." },
+  "user": { "id": "...", "username": "...", "display_name": "...", "avatar_url": "...", "xp": 1240 },  // UserRef, everywhere a user appears
   "status": "complete",
   "started_at": "...", "ended_at": "...",
   "distance_m": 3120, "duration_s": 4210,
@@ -236,9 +236,9 @@ Waits for pending chunks/photos (poll DB up to ~60 s), then runs the finish pipe
 `GET /feed?cursor=` → `{ items: [RecapSummary], next_cursor }`
 Every user's completed walks plus the viewer's own still-processing walks, newest first by `ended_at` (page size 10). `RecapSummary` = recap without `species[].clip_url/spectrogram_url` and `photos` beyond the first 3; `route` is thinned to ≤ 80 points; `route` and `static_map_url` only if precise. *(Changed 2026-09-26 from "people the viewer follows plus own" and "no route", see docs/CONTRACT_CHANGES.md.)*
 
-`GET /users/{username}` → profile + follower/following counts + `is_following`, `is_friend` + recent walk summaries.
+`GET /users/{username}` → `{ user: UserRef, bio, walk_count, life_list_count, follower_count, following_count, is_following, is_friend, recent_walks: [RecapSummary] }` (up to 10 walks, same rule as the feed; 404 if unknown). *(Shape pinned 2026-09-26.)*
 
-`GET /users/search?q=` → `[{ id, username, display_name, avatar_url, is_following }]` (prefix match, limit 20).
+`GET /users/search?q=` → `[{ id, username, display_name, avatar_url, xp, is_following }]` (username prefix or the start of a word in the display name, viewer excluded, limit 20).
 
 Follow/unfollow, chirp/unchirp, and comments go **directly to Supabase** from the client.
 
@@ -345,6 +345,7 @@ If eBird is unreachable, default everything to `common` and log. Never block a w
 - **Anomalies earn 0 points unless photo-confirmed** (vision ID matches the anomalous species). Confirmed anomalies earn the rare amount plus a `anomaly_confirmed` bonus of 100.
 - Bounty claim: +50. Quest: its `reward_points`, paid when the user claims it.
 - Every award is a row in `points_ledger`; `walks.points` is the sum for that walk.
+- **XP and levels:** `profiles.xp` is the user's lifetime ledger sum. Reaching level L takes 50·L·(L−1) XP (L → L+1 costs 100·L), capped at level 50 (122,500 XP). A new title every 5 levels: Hatchling, Nestling (5), Fledgling (10), Songbird (15), Field Birder (20), Keen Ear (25), Hawkeye (30), Ornithologist (35), Sky Sentinel (40), Raptor (45), Birdseye Legend (50). Computed client-side in `web/src/lib/levels.ts`; shown as a pill next to the user's name.
 
 ### 7.6 Bounties — Workstream C
 
@@ -447,8 +448,8 @@ Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Walk · Q
 6. **Feed** (C) — cards: user, area label, stats, static map (if precise), top 3 species, first photo, recap text snippet, chirp/comment counts.
 7. **Community Map** (C, taken over from A) — lives on the idle Walk screen for now, see §7.13.
 8. **Quests** (C) — 5 monthly nests on top (the week's first claimed quest lays an egg; footprints walk to the next nest; pixel-art sprites in `web/src/assets/pixel/`). Filling all 5 brings up a big egg over a white glow that the user taps until it cracks for 500 XP; quest cards with progress bars and XP; completed ones are covered by a CLAIM REWARD button; bounties near you; leaderboards (Local / Friends toggle).
-9. **Profile** (C) — stats, life list count, recent walks, follow button, **personal QR code** (encodes `https://<app-domain>/u/{username}`), and **"Scan QR"** using an in-app camera scanner (`html5-qrcode` or `jsQR`), since scanning with the iOS Camera app would open Safari instead of the PWA. `/u/{username}` route also works in a browser.
-10. **User search** (C) — username prefix search.
+9. **Profile** (C) — avatar, name, level + title with XP bar, bio, stats (walks, life list count, followers, following), recent walks, Edit profile (photo, name, bio) on your own, follower/following counts that open the lists (`/u/{username}/followers`, `/following`, read straight from Supabase), follow button, **personal QR code** (encodes `https://<app-domain>/u/{username}`), and **"Scan QR"** using an in-app camera scanner (`jsQR`; both live at `/qr`, reached from the QR icon on your profile and Scan QR on search), since scanning with the iOS Camera app would open Safari instead of the PWA. `/u/{username}` route also works in a browser.
+10. **User search** (C) — username prefix search at `/search` (magnifier in the header), with follow buttons.
 
 Design: nature palette (deep greens, warm off-white, one bright accent for rare birds), rounded cards, tier badges (Common gray, Uncommon blue, Rare gold).
 

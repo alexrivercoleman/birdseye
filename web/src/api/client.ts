@@ -76,8 +76,9 @@ export const api = {
   getUser: (username: string) =>
     USE_MOCKS
       ? mock<UserProfile>({
-          user: mocks.demoUser, follower_count: 12, following_count: 9, is_following: true, is_friend: true,
-          recent_walks: [mocks.mockRecap()],
+          user: mocks.demoUser, bio: 'Dawn chorus regular at Piedmont Park. Still chasing a Pileated photo.',
+          walk_count: 23, life_list_count: 41, follower_count: 12, following_count: 9, is_following: true,
+          is_friend: true, recent_walks: [mocks.mockRecap()],
         })
       : request<UserProfile>(`/users/${encodeURIComponent(username)}`),
   searchUsers: (q: string) =>
