@@ -33,7 +33,8 @@ export default function RecapScreen() {
         if (!alive) return
         setRecap(r)
         setError(null)
-        const missing = r.species.some((s) => !s.summary)
+        // null = not written yet; undefined = an API build without summaries, so there is nothing to wait for.
+        const missing = r.species.some((s) => s.summary === null)
         if (r.status !== 'complete') timer = window.setTimeout(load, 2000)
         else if (missing && summaryPolls-- > 0) timer = window.setTimeout(load, 3000)
         setAwaitingSummaries(r.status !== 'complete' || (missing && summaryPolls >= 0))
@@ -122,7 +123,7 @@ export default function RecapScreen() {
 }
 
 function SpeciesRow({ s, awaitingSummary }: { s: RecapSpecies; awaitingSummary: boolean }) {
-  const pending = !s.summary && awaitingSummary
+  const pending = s.summary === null && awaitingSummary
   return (
     <li id={`sp-${s.species_code}`} className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
