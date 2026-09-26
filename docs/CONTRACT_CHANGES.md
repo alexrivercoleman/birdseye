@@ -16,6 +16,31 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — Tier points are now 10 / 20 / 50 (A, in C's scoring)
+- What changed: §7.5 tier amounts: common 10, uncommon **20** (was 25), rare **50** (was 75), for heard and for
+  photographed alike. Everything else is unchanged: heard and photographed still score independently, once per
+  species per reason per day; confirmed anomalies earn the rare amount (now 50) + the 100 bonus. No §5/§6 change.
+  `api/app/game/scoring.py` `TIER_POINTS`, tests updated.
+- Why: product decision.
+- Who needs to update what: nothing in code. Any UI copy or demo script quoting 25/75 should say 20/50.
+
+## 2026-09-26 — AI species summaries: walk_species.summary + species[].summary (A, in C's areas)
+- What changed:
+  - §5: `walk_species.summary` text null. Migration `20260926210000_walk_species_summary.sql` (applied).
+  - §6: every `species[]` item in the recap (and RecapSummary) has `summary: string | null`, a 3-5 sentence LLM
+    paragraph: what the bird is, how to recognize it, and how rare it is at that place, season and time of day
+    (from `rarity_tier`, `is_anomaly`, the area label and the detection time). Additive; old clients ignore it.
+  - §7.10: new optional finish step after step 9, before `complete`, so the recap's polling picks summaries up.
+    One LLM call per walk for species without a summary (`app/llm/species_summary.py`); `rescore_walk` fills in
+    species added by a late photo confirm. Failure leaves `summary` null and never fails the walk.
+  - §7.12: first piece of `app/llm/`: `provider.complete_json(system, user)` (sync). `LLM_PROVIDER=meta` is used
+    only when `META_LLM_API_KEY/BASE_URL/TEXT_MODEL` are all set; otherwise OpenAI. `OPENAI_TEXT_MODEL` blank =
+    `gpt-5.4-mini`.
+- Why: product ask: a paragraph about each bird, with local rarity, next to its name on the recap (which is also
+  where feed cards open).
+- Who needs to update what: the Vultr `api/.env` needs `OPENAI_API_KEY`. C: the AI walk recap (§7.11) and quest
+  text can reuse `complete_json`. Seed script (C): `summary` can stay null for seeded walks.
+
 ## 2026-09-26 — Comment replies, comment likes, realtime chirps/comments (A, in C's migrations)
 - What changed (§5), migration `20260926200000_comment_replies_likes.sql`:
   - `comments.parent_id` uuid null → `comments.id`, on delete cascade. Replies are **one level deep**: a trigger

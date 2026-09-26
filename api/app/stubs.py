@@ -32,7 +32,7 @@ def recap(walk_id: str | None = None) -> s.Recap:
                 species_code="pilwoo", common_name="Pileated Woodpecker", sci_name="Dryocopus pileatus",
                 family_com_name="Woodpeckers", rarity_tier="uncommon", heard=True, photographed=False,
                 detection_count=2, first_detected_at=started + timedelta(minutes=22),
-                location=s.LatLng(lat=33.7866, lng=-84.3722), best_confidence=0.88, points=25, is_anomaly=False,
+                location=s.LatLng(lat=33.7866, lng=-84.3722), best_confidence=0.88, points=20, is_anomaly=False,
             ),
             s.RecapSpecies(
                 species_code="carwre", common_name="Carolina Wren", sci_name="Thryothorus ludovicianus",

@@ -7,7 +7,8 @@ Workstream B hooks (imported lazily; until they exist the step is skipped with a
         Returns (clip_path, spectrogram_path) Storage paths.
 
 run_finish(walk_id) is called as a BackgroundTask by POST /walks/{id}/finish.
-rescore_walk(walk_id) re-runs steps 3, 4, 6, 7, 8 when a photo is confirmed after finish.
+rescore_walk(walk_id) re-runs steps 3, 4, 6, 7, 8 when a photo is confirmed after finish, and writes AI species
+summaries for any species that don't have one yet.
 """
 
 import logging
@@ -24,6 +25,7 @@ from app.audio.pipeline import forget_walk, walk_tmp_dir
 from app.config import get_settings
 from app.game.quests import refresh_progress
 from app.game.scoring import apply_walk_scores
+from app.llm.species_summary import write_species_summaries
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ def run_finish(walk_id: str) -> None:
             # 7 bounties (§7.6): TODO (P1)
             _optional(conn, "public area", lambda: _public_area(conn, walk_id, stats))  # 9
             # 10 static map (P3), 11 AI recap (P2): TODO
+            _optional(conn, "species summaries", lambda: write_species_summaries(conn, walk_id))
             _complete(conn, walk, stats)                          # 12
             _optional(conn, "quests", lambda: _quests(conn, walk))  # 8: after 12, it only counts complete walks
         except Exception:
@@ -67,6 +70,7 @@ def rescore_walk(walk_id: str) -> None:
         # 7 bounties: TODO (P1)
         _update_walk_points(conn, walk_id)
         _optional(conn, "quests", lambda: _quests(conn, walk))
+        _optional(conn, "species summaries", lambda: write_species_summaries(conn, walk_id))
 
 
 # ---- steps ----------------------------------------------------------------

@@ -95,6 +95,7 @@ def build_recap(conn: psycopg.Connection, walk_id: str, viewer_id: str, summary:
                 first_detected_at=r["first_detected_at"], location=loc(r), best_confidence=r["best_confidence"],
                 clip_url=clip_urls.get(r["clip_path"]), spectrogram_url=spec_urls.get(r["spectrogram_path"]),
                 photo_url=photo_urls.get(r["photo_path"]), points=r["points"], is_anomaly=r["is_anomaly"],
+                summary=r.get("summary"),  # .get: the column may not be migrated yet on every database
             )
             for r in species
         ],

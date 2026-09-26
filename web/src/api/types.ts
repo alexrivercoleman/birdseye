@@ -30,6 +30,7 @@ export type RecapSpecies = {
   photo_url: string | null
   points: number
   is_anomaly: boolean
+  summary: string | null // AI paragraph: the bird + how rare it is here, this season, at this time
 }
 
 export type PhotoStatus = 'processing' | 'needs_confirmation' | 'confirmed' | 'unidentified'
