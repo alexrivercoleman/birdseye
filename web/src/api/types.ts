@@ -78,7 +78,7 @@ export type Recap = {
   viewer_chirped: boolean
 }
 
-// Recap without species[].clip_url/spectrogram_url and photos beyond the first 3; route thinned to ≤ 80 points.
+// Recap without species[].spectrogram_url and photos beyond the first 3; route thinned to ≤ 80 points.
 export type RecapSummary = Recap
 
 export type FeedPage = { items: RecapSummary[]; next_cursor: string | null }

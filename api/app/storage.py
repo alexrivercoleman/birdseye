@@ -23,6 +23,10 @@ def upload(bucket: str, path: str, data: bytes, content_type: str) -> str:
     return path
 
 
+def download(bucket: str, path: str) -> bytes:
+    return client().storage.from_(bucket).download(path)
+
+
 def signed_url(bucket: str, path: str | None) -> str | None:
     if not path:
         return None

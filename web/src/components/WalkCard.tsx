@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import type { RecapSummary, UserRef } from '../api/types'
 import { formatDate, formatDistance, formatDuration, formatTime } from '../lib/format'
+import { ClipButton } from './ClipButton'
 import { CommentSection } from './CommentSection'
 import { LevelTag } from './LevelTag'
 import { StaticRouteMap } from './StaticRouteMap'
@@ -26,6 +27,7 @@ export function WalkCard({
   const pins = walk.species.flatMap((s) => (s.location ? [{ location: s.location, tier: s.rarity_tier, photographed: s.photographed }] : []))
   const photos = walk.photos.filter((p) => p.url).slice(0, 3)
   const hiddenSpecies = walk.species.length - MAX_SPECIES
+  const anyClip = walk.species.slice(0, MAX_SPECIES).some((s) => s.clip_url)
 
   return (
     <article className={`overflow-hidden rounded-3xl bg-white shadow-sm ${highlight ? 'ring-2 ring-fern' : ''}`}>
@@ -69,10 +71,11 @@ export function WalkCard({
         </div>
 
         {walk.species.length > 0 && (
-          <ul className="space-y-1.5 px-4 pt-3">
+          <ul className="space-y-2 px-4 pt-3">
             {walk.species.slice(0, MAX_SPECIES).map((s) => (
               <li key={s.species_code} className="flex items-center justify-between gap-2 text-sm">
                 <span className="flex min-w-0 items-center gap-2">
+                  {s.clip_url ? <ClipButton url={s.clip_url} label={s.common_name} /> : anyClip && <span className="w-7 shrink-0" />}
                   <span className="truncate">{s.common_name}</span>
                   <TierBadge tier={s.rarity_tier} />
                   {s.photographed && <span aria-label="photographed">📷</span>}

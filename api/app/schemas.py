@@ -147,7 +147,7 @@ class Recap(BaseModel):
     viewer_chirped: bool
 
 
-# RecapSummary = Recap minus species[].clip_url/spectrogram_url and photos beyond first 3; route thinned to ≤ 80 points.
+# RecapSummary = Recap minus species[].spectrogram_url and photos beyond first 3; route thinned to ≤ 80 points.
 RecapSummary = Recap
 
 
