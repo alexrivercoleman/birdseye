@@ -33,8 +33,7 @@ def test_rejects_wrong_audience(monkeypatch):
     assert r.status_code == 401
 
 
-def test_recap_stub_shape(monkeypatch):
+def test_rejects_malformed_walk_id(monkeypatch):
+    # validated before any DB access
     r = _client(monkeypatch).get("/walks/abc", headers={"Authorization": f"Bearer {_token()}"})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["walk_id"] == "abc" and body["species"][0]["rarity_tier"] in {"common", "uncommon", "rare"}
+    assert r.status_code == 422

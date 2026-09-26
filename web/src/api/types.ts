@@ -34,6 +34,15 @@ export type RecapSpecies = {
 
 export type PhotoStatus = 'processing' | 'needs_confirmation' | 'confirmed' | 'unidentified'
 
+// GET /photos/{photo_id} (owner only), for the confirm sheet. Poll while status === 'processing'.
+export type PhotoDetail = {
+  photo_id: string
+  status: PhotoStatus
+  species_code: string | null
+  suggestions: { species_code: string; common_name: string; confidence: number | null }[]
+  url: string | null
+}
+
 export type RecapPhoto = {
   photo_id: string
   url: string | null

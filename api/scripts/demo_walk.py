@@ -46,8 +46,14 @@ def cleanup() -> None:
             "select c.storage_path from audio_chunks c join walks w on w.id = c.walk_id"
             " join auth.users u on u.id = w.user_id where u.email like %s and c.storage_path is not null",
             (f"%@{EMAIL_DOMAIN}",))]
+        photo_paths = [r["storage_path"] for r in conn.execute(
+            "select p.storage_path from photos p join walks w on w.id = p.walk_id"
+            " join auth.users u on u.id = w.user_id where u.email like %s and p.storage_path is not null",
+            (f"%@{EMAIL_DOMAIN}",))]
     if paths:
         storage.client().storage.from_("audio-chunks").remove(paths)
+    if photo_paths:
+        storage.client().storage.from_("photos").remove(photo_paths)
     with db.connect() as conn:
         n = conn.execute("delete from auth.users where email like %s", (f"%@{EMAIL_DOMAIN}",)).rowcount
     print(f"deleted {n} demo user(s) and their walks")
@@ -122,8 +128,32 @@ def run_audio_walk(client: TestClient, headers: dict) -> str:
         stored = conn.execute("select count(*) n from storage.objects where bucket_id = 'audio-chunks'"
                               " and name like %s", (f"{walk_id}/%",)).fetchone()["n"]
     print(f"   {stored} chunk files in Storage")
+
+    with tempfile.TemporaryDirectory() as tmp:  # a stand-in "bird photo": a solid green JPEG
+        jpg = Path(tmp) / "bird.jpg"
+        subprocess.run([get_settings().ffmpeg_bin, "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=green:s=640x480",
+                        "-frames:v", "1", str(jpg)], check=True)
+        r = client.post(f"/walks/{walk_id}/photos", headers=headers, files={"file": ("bird.jpg", jpg.read_bytes(), "image/jpeg")},
+                        data={"captured_at": (t0 + timedelta(seconds=40)).isoformat(),
+                              "lat": PIEDMONT[1] + 0.0008, "lng": PIEDMONT[0] + 0.0005})
+    photo_id = r.json()["photo_id"]
+    photo = client.get(f"/photos/{photo_id}", headers=headers).json()
+    print(f"   photo {photo_id[:8]}… {photo['status']}; suggestions: "
+          f"{[x['common_name'] for x in photo['suggestions']]}; url: {'signed' if photo['url'] else None}")
+    client.post(f"/photos/{photo_id}/confirm", headers=headers, json={"species_code": "carwre"}).raise_for_status()
+    print("   confirmed photo as Carolina Wren")
+
     client.post(f"/walks/{walk_id}/finish", headers=headers).raise_for_status()
     return walk_id
+
+
+def show_recap(client: TestClient, walk_id: str, headers: dict, who: str) -> None:
+    r = client.get(f"/walks/{walk_id}", headers=headers).json()
+    sp = [f"{x['common_name']} ({x['points']} pts, pin {'yes' if x['location'] else 'hidden'})" for x in r["species"]]
+    print(f"\n== GET /walks/{{id}} as {who}: precise={r['precise']}, area={r['public_area_label']!r}, "
+          f"route={'%d points' % len(r['route']) if r['route'] else None}")
+    print(f"   species: {', '.join(sp)}")
+    print(f"   photos: {[(x['status'], 'url' if x['url'] else None, 'pin' if x['location'] else 'hidden') for x in r['photos']]}")
 
 
 def show(walk_id: str, title: str) -> None:
@@ -150,25 +180,33 @@ def show(walk_id: str, title: str) -> None:
     print("   ledger:", ", ".join(f"{r['reason']} {r['amount']}" for r in ledger) or "(none)")
 
 
+def make_user(display_name: str) -> tuple[str, dict]:
+    user_id = str(uuid.uuid4())
+    token = jwt.encode({"sub": user_id, "aud": "authenticated", "exp": int(time.time()) + 600},
+                       os.environ["SUPABASE_JWT_SECRET"], algorithm="HS256")
+    with db.connect() as conn:
+        conn.execute("insert into auth.users (id, email, aud, role) values (%s, %s, 'authenticated', 'authenticated')",
+                     (user_id, f"{user_id[:8]}@{EMAIL_DOMAIN}"))
+        conn.execute("insert into profiles (id, username, display_name) values (%s, %s, %s)",
+                     (user_id, f"demo_{user_id[:8]}", display_name))
+    return user_id, {"Authorization": f"Bearer {token}"}
+
+
 def main() -> None:
     if "--cleanup" in sys.argv:
         cleanup()
         return
     get_settings.cache_clear()
-    user_id = str(uuid.uuid4())
-    token = jwt.encode({"sub": user_id, "aud": "authenticated", "exp": int(time.time()) + 600},
-                       os.environ["SUPABASE_JWT_SECRET"], algorithm="HS256")
-    headers = {"Authorization": f"Bearer {token}"}
-    with db.connect() as conn:
-        conn.execute("insert into auth.users (id, email, aud, role) values (%s, %s, 'authenticated', 'authenticated')",
-                     (user_id, f"{user_id[:8]}@{EMAIL_DOMAIN}"))
-        conn.execute("insert into profiles (id, username, display_name) values (%s, %s, 'Demo Walker')",
-                     (user_id, f"demo_{user_id[:8]}"))
+    user_id, headers = make_user("Demo Walker")
     try:
         client = TestClient(app)
         if "--audio" in sys.argv:
             print("\n== Audio walk: uploading chunks")
-            show(run_audio_walk(client, headers), "Audio walk after finish (tiers from eBird)")
+            walk_id = run_audio_walk(client, headers)
+            show(walk_id, "Audio walk after finish (tiers from eBird)")
+            show_recap(client, walk_id, headers, "the owner")
+            _, stranger = make_user("Demo Stranger")
+            show_recap(client, walk_id, stranger, "a stranger (not a mutual follow)")
             return
         w1 = run_walk(client, headers, minutes_ago=90, photos=[])
         show(w1, "Walk 1: heard only. Anomaly unconfirmed → 0 pts")

@@ -5,12 +5,14 @@ from uuid import UUID
 import psycopg
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 
-from app import db
+from app import db, storage
 from app import schemas as s
-from app import stubs
 from app.audio.pipeline import ext_for, process_chunk, walk_tmp_dir
 from app.auth import CurrentUser, get_current_user
-from app.game.finish import run_finish
+from app.game.finish import rescore_walk, run_finish
+from app.photos.pipeline import ext_for as photo_ext_for
+from app.photos.pipeline import process_photo
+from app.social.recap import build_recap
 
 router = APIRouter(tags=["walks"])
 
@@ -84,20 +86,68 @@ def upload_chunk(
 
 
 @router.post("/walks/{walk_id}/photos", response_model=s.PhotoCreated)
-async def upload_photo(
-    walk_id: str,
+def upload_photo(
+    walk_id: UUID,
+    background: BackgroundTasks,
     file: UploadFile = File(...),
-    captured_at: str = Form(...),
+    captured_at: datetime = Form(...),
     lat: float = Form(...),
     lng: float = Form(...),
     user: CurrentUser = Depends(get_current_user),
 ):
-    return s.PhotoCreated(photo_id=str(uuid.uuid4()))  # STUB (B: photo ID §7.8)
+    mime = file.content_type or "image/jpeg"
+    photo_id = uuid.uuid4()
+    image = file.file.read()
+    with db.connect() as conn:
+        _require_owner(conn, walk_id, user)
+        conn.execute(
+            "insert into photos (id, walk_id, captured_at, geog, storage_path)"
+            " values (%s, %s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s)",
+            (photo_id, walk_id, captured_at, lng, lat, f"{walk_id}/{photo_id}.{photo_ext_for(mime)}"),
+        )
+    background.add_task(process_photo, str(photo_id), image, mime)
+    return s.PhotoCreated(photo_id=str(photo_id))
+
+
+def _require_photo_owner(conn: psycopg.Connection, photo_id: UUID, user: CurrentUser) -> dict:
+    photo = conn.execute(
+        "select p.id, p.walk_id, p.status, p.species_code, p.suggestions, p.storage_path, w.status walk_status"
+        " from photos p join walks w on w.id = p.walk_id where p.id = %s and w.user_id = %s",
+        (photo_id, user.id),
+    ).fetchone()
+    if not photo:
+        raise HTTPException(404, "Photo not found")
+    return photo
+
+
+@router.get("/photos/{photo_id}", response_model=s.PhotoDetail)
+def get_photo(photo_id: UUID, user: CurrentUser = Depends(get_current_user)):
+    """Suggestions for the confirm sheet. Poll until status leaves "processing"."""
+    with db.connect() as conn:
+        p = _require_photo_owner(conn, photo_id, user)
+    return s.PhotoDetail(
+        photo_id=str(p["id"]), status=p["status"], species_code=p["species_code"],
+        suggestions=p["suggestions"], url=storage.signed_url("photos", p["storage_path"]),
+    )
 
 
 @router.post("/photos/{photo_id}/confirm", response_model=s.Ok)
-async def confirm_photo(photo_id: str, body: s.PhotoConfirm, user: CurrentUser = Depends(get_current_user)):
-    return s.Ok()  # STUB (B). If the walk is already complete, call app.game.finish.rescore_walk (§7.10).
+def confirm_photo(
+    photo_id: UUID, body: s.PhotoConfirm, background: BackgroundTasks, user: CurrentUser = Depends(get_current_user)
+):
+    with db.connect() as conn:
+        p = _require_photo_owner(conn, photo_id, user)
+        if body.species_code and not conn.execute(
+            "select 1 from ebird_taxonomy where species_code = %s", (body.species_code,)
+        ).fetchone():
+            raise HTTPException(422, f"Unknown species_code {body.species_code!r}")
+        conn.execute(
+            "update photos set species_code = %s, status = %s where id = %s",
+            (body.species_code, "confirmed" if body.species_code else "unidentified", photo_id),
+        )
+    if p["walk_status"] == "complete":  # confirmed after finish → recompute this walk (§7.10)
+        background.add_task(rescore_walk, str(p["walk_id"]))
+    return s.Ok()
 
 
 @router.post("/walks/{walk_id}/finish", response_model=s.FinishResponse)
@@ -114,5 +164,9 @@ def finish_walk(walk_id: UUID, background: BackgroundTasks, user: CurrentUser = 
 
 
 @router.get("/walks/{walk_id}", response_model=s.Recap)
-async def get_walk(walk_id: str, user: CurrentUser = Depends(get_current_user)):
-    return stubs.recap(walk_id)  # STUB (C: masking §7.9)
+def get_walk(walk_id: UUID, user: CurrentUser = Depends(get_current_user)):
+    with db.connect() as conn:
+        recap = build_recap(conn, str(walk_id), user.id)
+    if not recap:
+        raise HTTPException(404, "Walk not found")
+    return recap

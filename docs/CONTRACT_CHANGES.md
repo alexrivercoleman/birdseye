@@ -16,6 +16,14 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-25 — New endpoint GET /photos/{photo_id} (C, Alexandros)
+- What changed: additive. `GET /photos/{photo_id}` → `{ photo_id, status, species_code, suggestions, url }`, owner only.
+  Added to §6, `api/app/schemas.py` (`PhotoDetail`), and `web/src/api` (`PhotoDetail` type, `api.getPhoto`, mock).
+- Why: §8's photo confirm sheet needs the suggestions, but no endpoint returned them (photos have no client RLS access
+  and `RecapPhoto` has no `suggestions`).
+- Who needs to update what: A polls `api.getPhoto` after upload until status isn't `processing`, then shows the chips.
+  Until vision ID (P2) lands, suggestions are the species heard so far on the walk, with `confidence: null`.
+
 ## 2026-09-25 — Auth: email + password instead of email OTP (C, Alexandros)
 - What changed: §8 screen 1. Sign-in is email + password (`supabase.auth.signUp` / `signInWithPassword`).
   "Confirm email" is off in Supabase, so sign-up returns a session immediately. No §5/§6 change.

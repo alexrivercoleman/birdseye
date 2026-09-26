@@ -5,6 +5,7 @@ import type {
   FeedPage,
   LeaderboardRow,
   NearbyBounty,
+  PhotoDetail,
   Recap,
   TrackPoint,
   TrailSpecies,
@@ -40,6 +41,16 @@ export const api = {
     USE_MOCKS ? mock({ chunk_id: crypto.randomUUID() }) : post<{ chunk_id: string }>(`/walks/${walkId}/chunks`, form),
   uploadPhoto: (walkId: string, form: FormData) =>
     USE_MOCKS ? mock({ photo_id: crypto.randomUUID() }) : post<{ photo_id: string }>(`/walks/${walkId}/photos`, form),
+  getPhoto: (photoId: string) =>
+    USE_MOCKS
+      ? mock<PhotoDetail>({
+          photo_id: photoId, status: 'needs_confirmation', species_code: null, url: null,
+          suggestions: [
+            { species_code: 'carwre', common_name: 'Carolina Wren', confidence: 0.82 },
+            { species_code: 'norcar', common_name: 'Northern Cardinal', confidence: 0.11 },
+          ],
+        })
+      : request<PhotoDetail>(`/photos/${photoId}`),
   confirmPhoto: (photoId: string, species_code: string | null) =>
     USE_MOCKS ? mock({ ok: true }) : post<{ ok: boolean }>(`/photos/${photoId}/confirm`, { species_code }),
   finishWalk: (walkId: string) =>

@@ -53,6 +53,21 @@ class PhotoConfirm(BaseModel):
     species_code: str | None
 
 
+class PhotoSuggestion(BaseModel):
+    species_code: str
+    common_name: str
+    confidence: float | None = None
+
+
+class PhotoDetail(BaseModel):
+    """GET /photos/{photo_id} (owner only). Added 2026-09-25, see docs/CONTRACT_CHANGES.md."""
+    photo_id: str
+    status: Literal["processing", "needs_confirmation", "confirmed", "unidentified"]
+    species_code: str | None = None
+    suggestions: list[PhotoSuggestion]
+    url: str | None = None
+
+
 class FinishResponse(BaseModel):
     status: Literal["processing"] = "processing"
 

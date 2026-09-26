@@ -182,6 +182,9 @@ Returns immediately; processing runs in the background. New detections are inser
 `POST /walks/{walk_id}/photos` — **multipart**: `file` (image), `captured_at`, `lat`, `lng` → `{ photo_id }`
 Vision ID runs in the background.
 
+`GET /photos/{photo_id}` → `{ photo_id, status, species_code, suggestions: [{species_code, common_name, confidence}], url }` (owner only)
+For the confirm sheet: poll until `status` leaves `processing`. *(Added 2026-09-25, see docs/CONTRACT_CHANGES.md.)*
+
 `POST /photos/{photo_id}/confirm` — body `{ species_code | null }` → `{ ok: true }`
 User picks one of the suggestions (or "not sure", which sets `unidentified`).
 
