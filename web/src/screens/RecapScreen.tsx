@@ -109,9 +109,14 @@ function SpeciesRow({ s }: { s: RecapSpecies }) {
         </div>
         <span className={`shrink-0 font-bold ${s.points ? 'text-forest' : 'text-bark/40'}`}>+{s.points}</span>
       </div>
+      {(s.summary || s.photo_url) && (
+        <div className="mt-3 flex items-start gap-3">
+          {s.photo_url && <img src={s.photo_url} alt={s.common_name} className="h-24 w-24 shrink-0 rounded-xl object-cover" />}
+          {s.summary && <p className="text-sm leading-relaxed text-bark/80">{s.summary}</p>}
+        </div>
+      )}
       {s.spectrogram_url && <img src={s.spectrogram_url} alt="" className="mt-3 w-full rounded-lg" />}
       {s.clip_url && <audio src={s.clip_url} controls className="mt-2 w-full" />}
-      {s.photo_url && <img src={s.photo_url} alt="" className="mt-3 max-h-48 rounded-lg object-cover" />}
     </li>
   )
 }

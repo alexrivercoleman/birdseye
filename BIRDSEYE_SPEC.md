@@ -133,7 +133,7 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 **photos** — `id`, `walk_id`, `captured_at`, `geog`, `storage_path`, `suggestions` jsonb (`[{species_code, common_name, confidence}]`), `species_code` null (set after user confirms), `status` (`processing` | `needs_confirmation` | `confirmed` | `unidentified`).
 
-**walk_species** — one row per species per walk; this is what the recap and scoring read. PK(`walk_id`, `species_code`). Columns: `common_name`, `sci_name`, `family_com_name`, `rarity_tier` (`common` | `uncommon` | `rare`), `heard` bool, `photographed` bool, `detection_count`, `first_detected_at`, `geog` (first detection, or photo location if photo-only), `best_detection_id`, `best_confidence`, `clip_path`, `spectrogram_path`, `photo_id`, `points`, `is_anomaly`.
+**walk_species** — one row per species per walk; this is what the recap and scoring read. PK(`walk_id`, `species_code`). Columns: `common_name`, `sci_name`, `family_com_name`, `rarity_tier` (`common` | `uncommon` | `rare`), `heard` bool, `photographed` bool, `detection_count`, `first_detected_at`, `geog` (first detection, or photo location if photo-only), `best_detection_id`, `best_confidence`, `clip_path`, `spectrogram_path`, `photo_id`, `points`, `is_anomaly`, `summary` (AI paragraph about the bird and its local rarity; added 2026-09-26).
 
 ### Game
 
@@ -219,7 +219,8 @@ Waits for pending chunks/photos (poll DB up to ~60 s), then runs the finish pipe
     "first_detected_at": "...", "location": { "lat": 0, "lng": 0 },   // null if !precise
     "best_confidence": 0.93,
     "clip_url": "signed url", "spectrogram_url": "signed url",
-    "photo_url": null, "points": 10, "is_anomaly": false
+    "photo_url": null, "points": 10, "is_anomaly": false,
+    "summary": "AI paragraph: the bird + how rare it is here, this season, at this time"   // null until written
   }],
   "photos": [{ "photo_id": "...", "url": "...", "species_code": "...", "status": "confirmed", "location": {...} }],
   "recap_text": "AI-written summary…",
@@ -334,8 +335,10 @@ If eBird is unreachable, default everything to `common` and log. Never block a w
 | Tier | Heard | Photographed |
 |---|---|---|
 | common | 10 | 10 |
-| uncommon | 25 | 25 |
-| rare | 75 | 75 |
+| uncommon | 20 | 20 |
+| rare | 50 | 50 |
+
+*(Was 10 / 25 / 75; changed 2026-09-26, see docs/CONTRACT_CHANGES.md.)*
 
 - Heard and photographed are scored **independently**, so a species both heard and photographed on a walk earns double.
 - Each (user, species, heard/photographed) earns points **at most once per calendar day** (prevents farming via many tiny walks). It still appears in the recap with `points: 0`.

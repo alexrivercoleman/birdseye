@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import psycopg
 
-TIER_POINTS = {"common": 10, "uncommon": 25, "rare": 75}
+TIER_POINTS = {"common": 10, "uncommon": 20, "rare": 50}
 ANOMALY_BONUS = 100
 BOUNTY_CLAIM_POINTS = 50
 

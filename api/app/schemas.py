@@ -91,6 +91,7 @@ class RecapSpecies(BaseModel):
     photo_url: str | None = None
     points: int
     is_anomaly: bool
+    summary: str | None = None  # AI paragraph: the bird + how rare it is here, this season, at this time
 
 
 class RecapPhoto(BaseModel):

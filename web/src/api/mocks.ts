@@ -18,7 +18,7 @@ export function mockRecap(walk_id = 'mock-walk'): Recap {
     distance_m: 3120,
     duration_s: 4210,
     species_count: 3,
-    points: 55,
+    points: 50,
     precise: true,
     public_area_label: 'Piedmont Park, Atlanta',
     route: [
@@ -33,19 +33,24 @@ export function mockRecap(walk_id = 'mock-walk'): Recap {
         species_code: 'pilwoo', common_name: 'Pileated Woodpecker', sci_name: 'Dryocopus pileatus',
         family_com_name: 'Woodpeckers', rarity_tier: 'uncommon', heard: true, photographed: false,
         detection_count: 2, first_detected_at: hoursAgo(1.6), location: { lat: 33.7866, lng: -84.3722 },
-        best_confidence: 0.88, clip_url: null, spectrogram_url: null, photo_url: null, points: 25, is_anomaly: false,
+        best_confidence: 0.88, clip_url: null, spectrogram_url: null, photo_url: null, points: 20, is_anomaly: false,
+        summary:
+          "The crow-sized Pileated Woodpecker is hard to miss: a flaming red crest, bold black-and-white face stripes and a wild, laughing call that rings through mature woods. It chisels rectangular holes in dead trees hunting carpenter ants. Around here it counts as uncommon right now, since no eBird birders have reported one within 25 km in the past month, so hearing it on a fall morning is a real treat.",
       },
       {
         species_code: 'carwre', common_name: 'Carolina Wren', sci_name: 'Thryothorus ludovicianus',
         family_com_name: 'Wrens', rarity_tier: 'common', heard: true, photographed: true,
         detection_count: 7, first_detected_at: hoursAgo(1.95), location: { lat: 33.7853, lng: -84.3736 },
         best_confidence: 0.93, clip_url: null, spectrogram_url: null, photo_url: null, points: 20, is_anomaly: false,
+        summary:
+          "A tiny, rust-brown bundle with a bold white eyebrow and a cocked tail, the Carolina Wren has a voice far bigger than its body: a ringing teakettle-teakettle-teakettle. Pairs stay together year-round in brushy yards and woodland edges. It is common here, reported by local birders all month, and early morning is when it sings loudest.",
       },
       {
         species_code: 'norcar', common_name: 'Northern Cardinal', sci_name: 'Cardinalis cardinalis',
         family_com_name: 'Cardinals, Grosbeaks, and Allies', rarity_tier: 'common', heard: true, photographed: false,
         detection_count: 5, first_detected_at: hoursAgo(1.85), location: { lat: 33.788, lng: -84.3705 },
         best_confidence: 0.81, clip_url: null, spectrogram_url: null, photo_url: null, points: 10, is_anomaly: false,
+        summary: null,
       },
     ],
     photos: [],
