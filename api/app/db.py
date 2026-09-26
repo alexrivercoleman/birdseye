@@ -26,6 +26,10 @@ def pool() -> ConnectionPool:
         max_size=10,
         # prepare_threshold=None: prepared statements break behind Supabase's transaction pooler.
         kwargs={"row_factory": dict_row, "prepare_threshold": None},
+        # Supabase's pooler drops idle connections; test each one on checkout and recycle idle ones,
+        # or a request after a quiet spell gets "server closed the connection unexpectedly".
+        check=ConnectionPool.check_connection,
+        max_idle=300,
         open=True,
     )
 
