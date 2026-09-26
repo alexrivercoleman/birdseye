@@ -3,10 +3,12 @@
 //   200 px (reply bar), so everything sits between. The map matches RecapMap (lib/mapView), drawn at 2×. Shared
 //   through the OS share sheet (Web Share API), since Instagram's Stories API is native-only.
 // - renderSticker: Strava-style transparent PNG (title, route + bird pins with no map, distance/time/species, 3 rarest
-//   birds) in Fredoka, to copy and paste onto a story photo as a movable sticker.
+//   birds) in Barlow Semi Condensed, to copy and paste onto a story photo as a movable sticker.
 import type { Recap, RecapSpecies, Tier } from '../api/types'
 import bird from '../assets/logo/bird.png'
-import fredokaUrl from '../assets/fonts/Fredoka.woff2'
+import barlow500 from '../assets/fonts/BarlowSemiCondensed-500.woff2'
+import barlow600 from '../assets/fonts/BarlowSemiCondensed-600.woff2'
+import barlow700 from '../assets/fonts/BarlowSemiCondensed-700.woff2'
 import wordmark from '../assets/logo/wordmark.png'
 import { TIER_COLORS } from '../components/TierBadge'
 import { formatDate, formatDistance, formatDuration, formatTime } from './format'
@@ -73,23 +75,24 @@ const STICKER_CHIP: Record<Tier, [string, string]> = {
   uncommon: [TIER_COLORS.uncommon, C.white],
   common: ['#6f756f', C.white],
 }
-// Rounded, friendly Fredoka echoes the hand-drawn lettering of the logo (SIL Open Font License, bundled)
-const DISPLAY = `Fredoka, ${FONT}`
-let fredoka: Promise<unknown> | null = null
-const loadFredoka = () =>
-  (fredoka ??= new FontFace('Fredoka', `url(${fredokaUrl})`, { weight: '300 700' })
-    .load()
-    .then((f) => document.fonts.add(f))
-    .catch(() => null)) // falls back to the system font
+// Barlow Semi Condensed: a free, sporty condensed grotesk close to Strava's type (SIL Open Font License, bundled)
+const DISPLAY = `"Barlow Semi Condensed", ${FONT}`
+let barlow: Promise<unknown> | null = null
+const loadBarlow = () =>
+  (barlow ??= Promise.all(
+    ([[barlow500, '500'], [barlow600, '600'], [barlow700, '700']] as const).map(([url, weight]) =>
+      new FontFace('Barlow Semi Condensed', `url(${url})`, { weight }).load().then((f) => document.fonts.add(f)),
+    ),
+  ).catch(() => null)) // falls back to the system font
 
 export async function renderSticker(recap: Recap): Promise<Blob> {
-  await loadFredoka()
+  await loadBarlow()
   const route = recap.route ?? []
   const pins = recap.species.filter((s) => s.location)
   const coords: [number, number][] = [...route, ...pins.map((s): [number, number] => [s.location!.lng, s.location!.lat])]
   const top = rarest(recap)
   const ROUTE = { w: 820, h: 540 }
-  const height = 140 + (coords.length ? ROUTE.h + 44 : 0) + 150 + (top.length ? 64 + top.length * 70 : 0) + 140
+  const height = 140 + (coords.length ? ROUTE.h + 44 : 0) + 150 + (top.length ? 56 + top.length * 70 : 0) + 140
   const canvas = document.createElement('canvas')
   canvas.width = SW
   canvas.height = height
@@ -102,8 +105,8 @@ export async function renderSticker(recap: Recap): Promise<Blob> {
   }
   shadow()
 
-  const title = { weight: 600, align: 'center' as const, maxWidth: SW - 80, spacing: 1, font: DISPLAY }
-  text(ctx, recap.public_area_label ?? 'Bird walk', SW / 2, 104, 68, C.white, title)
+  const title = { weight: 700, align: 'center' as const, maxWidth: SW - 80, font: DISPLAY }
+  text(ctx, recap.public_area_label ?? 'Bird walk', SW / 2, 104, 74, C.white, title)
   let y = 140
 
   if (coords.length) {
@@ -136,7 +139,7 @@ export async function renderSticker(recap: Recap): Promise<Blob> {
     y += ROUTE.h + 44
   }
 
-  // distance | time | species, field-guide style: big rounded numbers, small wide-spaced labels, hairline dividers
+  // distance | time | species, Strava-style: small label over a big bold number
   const stats: [string, string][] = [
     ['Distance', formatDistance(recap.distance_m)],
     ['Time', formatDuration(recap.duration_s)],
@@ -145,41 +148,33 @@ export async function renderSticker(recap: Recap): Promise<Blob> {
   const colW = 290
   stats.forEach(([label, value], i) => {
     const cx = SW / 2 + (i - 1) * colW
-    let size = 68
-    ctx.font = `600 ${size}px ${DISPLAY}`
-    while (size > 44 && ctx.measureText(value).width > colW - 50) ctx.font = `600 ${(size -= 2)}px ${DISPLAY}`
-    text(ctx, value, cx, y + 76, size, C.white, { weight: 600, align: 'center', font: DISPLAY })
-    text(ctx, label.toUpperCase(), cx, y + 118, 23, 'rgba(255, 255, 255, 0.92)', { weight: 500, align: 'center', spacing: 6, font: DISPLAY })
-    if (i) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-      ctx.fillRect(cx - colW / 2 - 1, y + 22, 2, 100)
-    }
+    let size = 76
+    ctx.font = `700 ${size}px ${DISPLAY}`
+    while (size > 50 && ctx.measureText(value).width > colW - 70) ctx.font = `700 ${(size -= 2)}px ${DISPLAY}`
+    text(ctx, label, cx, y + 34, 30, 'rgba(255, 255, 255, 0.92)', { weight: 500, align: 'center', font: DISPLAY })
+    text(ctx, value, cx, y + 114, size, C.white, { weight: 700, align: 'center', font: DISPLAY })
   })
   y += 150
 
   if (top.length) {
-    // a small dotted rule, then the rarest birds
+    // a short rule, then the rarest birds
     ctx.fillStyle = C.white
-    for (const dx of [-28, 0, 28]) {
-      ctx.beginPath()
-      ctx.arc(SW / 2 + dx, y + 26, 5, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    y += 64
+    ctx.fillRect(SW / 2 - 40, y + 22, 80, 4)
+    y += 56
     for (const s of top) {
       const chip = s.rarity_tier.toUpperCase()
-      ctx.font = `600 21px ${DISPLAY}`
-      if ('letterSpacing' in ctx) ctx.letterSpacing = '3px'
+      ctx.font = `700 22px ${DISPLAY}`
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '2px'
       const chipW = ctx.measureText(chip).width + 36
       if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
-      ctx.font = `500 46px ${DISPLAY}`
+      ctx.font = `600 48px ${DISPLAY}`
       const nameW = Math.min(ctx.measureText(s.common_name).width, SW - 80 - chipW - 20)
       const x = (SW - nameW - 20 - chipW) / 2
-      text(ctx, s.common_name, x, y + 46, 46, C.white, { weight: 500, maxWidth: nameW + 1, font: DISPLAY })
+      text(ctx, s.common_name, x, y + 47, 48, C.white, { weight: 600, maxWidth: nameW + 1, font: DISPLAY })
       const [bg, fg] = STICKER_CHIP[s.rarity_tier]
       roundRect(ctx, x + nameW + 20, y + 10, chipW, 42, 21, bg)
       ctx.shadowColor = 'transparent'
-      text(ctx, chip, x + nameW + 20 + chipW / 2, y + 39, 21, fg, { weight: 600, align: 'center', spacing: 3, font: DISPLAY })
+      text(ctx, chip, x + nameW + 20 + chipW / 2, y + 39, 22, fg, { weight: 700, align: 'center', spacing: 2, font: DISPLAY })
       shadow()
       y += 70
     }
