@@ -229,7 +229,7 @@ class LeaderboardRow(BaseModel):
 class MapTrail(BaseModel):
     trail_id: str
     name: str | None = None
-    geometry: dict[str, Any]  # GeoJSON LineString
+    geometry: dict[str, Any]  # GeoJSON MultiLineString: every OSM way of the trail
     species_total: int
 
 

@@ -1,5 +1,5 @@
 // Mirrors BIRDSEYE_SPEC.md §6 and api/app/schemas.py. Changing these = contract change.
-import type { LineString } from 'geojson'
+import type { LineString, MultiLineString } from 'geojson'
 
 export type Tier = 'common' | 'uncommon' | 'rare'
 export type LatLng = { lat: number; lng: number }
@@ -136,7 +136,8 @@ export type NearbyBounty = {
 export type LeaderboardRow = { rank: number; user: UserRef; points: number }
 
 export type CommunityMap = {
-  trails: { trail_id: string; name: string | null; geometry: LineString; species_total: number }[]
+  // trail_id is a trail group (every OSM way of one named trail); geometry is a MultiLineString of those ways
+  trails: { trail_id: string; name: string | null; geometry: LineString | MultiLineString; species_total: number }[]
   bounties: NearbyBounty[]
   anomalies: {
     species_code: string

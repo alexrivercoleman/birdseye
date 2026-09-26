@@ -1,9 +1,11 @@
-// §8 screens 2–3: idle "Start Walk" and the active walk. §7.1 recording rules live in lib/recorder, lib/geo,
+// §8 screens 2–3: idle "Start Walk" (over the community map, §7.13) and the active walk. §7.1 recording rules live in lib/recorder, lib/geo,
 // lib/wakeLock and lib/uploadQueue. The active walk is persisted in localStorage so a reload can resume it.
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api, USE_MOCKS } from '../api/client'
 import { PhotoConfirmSheet } from '../components/PhotoConfirmSheet'
+
+const CommunityMap = lazy(() => import('../components/CommunityMap')) // mapbox-gl is big; load it on demand
 import { downscaleImage, formatDistance, formatDuration } from '../lib/format'
 import { GeoTracker, type GeoStatus } from '../lib/geo'
 import { CHUNK_MS, ChunkRecorder, type MicStatus } from '../lib/recorder'
@@ -49,18 +51,23 @@ function IdleWalk({ onStart }: { onStart: (w: ActiveWalk) => void }) {
   }
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-6 p-6 text-center">
-      <button
-        onClick={start}
-        disabled={busy}
-        className="flex h-52 w-52 items-center justify-center rounded-full bg-forest text-2xl font-bold text-paper shadow-xl active:scale-95 disabled:opacity-60"
-      >
-        {busy ? 'Starting…' : 'Start Walk'}
-      </button>
-      <p className="max-w-xs text-sm text-bark/70">
-        Keep Birdseye open while you walk. iPhones pause the microphone when the screen locks or you switch apps.
-      </p>
-      {error && <p className="max-w-xs text-sm text-red-700">{error}</p>}
+    <div className="relative h-full">
+      <Suspense fallback={<div className="h-full bg-fern/10" />}>
+        <CommunityMap />
+      </Suspense>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 px-6 pb-11 text-center">
+        {error && <p className="pointer-events-auto max-w-xs rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        <button
+          onClick={start}
+          disabled={busy}
+          className="pointer-events-auto rounded-full bg-forest px-12 py-4 text-xl font-bold text-paper shadow-xl active:scale-95 disabled:opacity-60"
+        >
+          {busy ? 'Starting…' : 'Start Walk'}
+        </button>
+        <p className="max-w-xs rounded-full bg-paper/90 px-3 py-1 text-[11px] text-bark/70 shadow-sm">
+          Keep Birdseye open while you walk: iPhones pause the mic when the screen locks.
+        </p>
+      </div>
     </div>
   )
 }

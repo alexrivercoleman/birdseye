@@ -1,4 +1,7 @@
-import type { CommunityMap, FeedPage, LeaderboardRow, NearbyBounty, NestHatched, NestStatus, QuestClaimed, Recap, UserQuest } from './types'
+import { SAMPLE_HEAT, SAMPLE_TRAILS } from './sampleMap'
+import type {
+  CommunityMap, FeedPage, LeaderboardRow, NearbyBounty, NestHatched, NestStatus, QuestClaimed, Recap, UserQuest,
+} from './types'
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
 const daysFromNow = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString()
@@ -131,13 +134,13 @@ export const mockLeaderboard = (): LeaderboardRow[] => [
 ]
 
 export const mockCommunityMap = (): CommunityMap => ({
-  trails: [
+  trails: SAMPLE_TRAILS,
+  bounties: mockBounties(),
+  anomalies: [
     {
-      trail_id: 't1', name: 'Piedmont Park Loop', species_total: 23,
-      geometry: { type: 'LineString', coordinates: [[-84.3738, 33.7851], [-84.3705, 33.788], [-84.3719, 33.7897]] },
+      species_code: 'verfly', common_name: 'Vermilion Flycatcher', center: { lat: 33.7868, lng: -84.3745 }, radius_m: 300,
+      detected_at: hoursAgo(30), reason: 'outside expected range/season', photo_confirmed: true,
     },
   ],
-  bounties: mockBounties(),
-  anomalies: [],
-  heat: [{ lat: 33.7866, lng: -84.3722, weight: 3 }],
+  heat: SAMPLE_HEAT,
 })

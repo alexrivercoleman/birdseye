@@ -2,14 +2,14 @@
 import { Link } from 'react-router'
 import type { RecapSummary, UserRef } from '../api/types'
 import { formatDate, formatDistance, formatDuration, formatTime } from '../lib/format'
-import { RouteSketch } from './RouteSketch'
+import { StaticRouteMap } from './StaticRouteMap'
 import { TierBadge } from './TierBadge'
 
 const MAX_SPECIES = 5
 
 export function WalkCard({ walk, highlight }: { walk: RecapSummary; highlight?: boolean }) {
   const processing = walk.status !== 'complete'
-  const pins = walk.species.flatMap((s) => (s.location ? [{ location: s.location, tier: s.rarity_tier }] : []))
+  const pins = walk.species.flatMap((s) => (s.location ? [{ location: s.location, tier: s.rarity_tier, photographed: s.photographed }] : []))
   const photos = walk.photos.filter((p) => p.url).slice(0, 3)
   const hiddenSpecies = walk.species.length - MAX_SPECIES
 
@@ -47,7 +47,7 @@ export function WalkCard({ walk, highlight }: { walk: RecapSummary; highlight?: 
         {walk.static_map_url ? (
           <img src={walk.static_map_url} alt="Walk route" className="block w-full" />
         ) : walk.precise && walk.route && walk.route.length > 1 ? (
-          <RouteSketch route={walk.route} pins={pins} />
+          <StaticRouteMap route={walk.route} pins={pins} />
         ) : !walk.precise ? (
           <p className="px-4 text-xs text-bark/50">Exact route is visible to friends only.</p>
         ) : null}

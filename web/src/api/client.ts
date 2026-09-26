@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import * as mocks from './mocks'
+import { isSampleTrail, sampleTrailSpecies } from './sampleMap'
 import type {
   CommunityMap,
   FeedPage,
@@ -101,7 +102,7 @@ export const api = {
   communityMap: (bbox: [number, number, number, number]) =>
     USE_MOCKS ? mock(mocks.mockCommunityMap()) : request<CommunityMap>(`/map/community?bbox=${bbox.join(',')}`),
   trailSpecies: (trailId: string) =>
-    USE_MOCKS
-      ? mock<TrailSpecies>({ name: 'Piedmont Park Loop', top_species: [] })
+    USE_MOCKS || isSampleTrail(trailId)
+      ? mock(sampleTrailSpecies(trailId))
       : request<TrailSpecies>(`/trails/${trailId}/species`),
 }

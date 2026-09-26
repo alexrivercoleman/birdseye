@@ -1,14 +1,14 @@
 // §8 screen 8, Pokémon GO field-research style: five monthly nests (one egg per week, laid by the week's first
 // claimed quest) above the active quests. Completed quests are covered by a CLAIM REWARD button. Filling every
 // nest brings up a big egg the user taps until it cracks open for a bonus.
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../api/client'
 import type { NestStatus, UserQuest } from '../api/types'
 import nestImg from '../assets/pixel/nest.png'
 import eggImg from '../assets/pixel/egg.png'
 
-// egg-0 (whole) … egg-4 (badly cracked), egg-5 (top flying off), egg-6 (empty bottom shell); all the same canvas
+// egg-0 (whole) … egg-4 (badly cracked), egg-5 (breaking open); all the same canvas
 const EGG_FRAMES = Object.entries(
   import.meta.glob<string>('../assets/pixel/egg-*.png', { eager: true, import: 'default' }),
 )
@@ -19,7 +19,7 @@ const PIXELATED = '[image-rendering:pixelated]'
 const CLAIM_ANIM_MS = 550
 const EGG_DROP_MS = 900 // let the last nest's egg land before the big egg appears
 const HATCH_TAPS = 10
-const CRACK_MS = 350 // top of the shell flies off, then the empty bottom shell
+const CRACK_MS = 350 // how long the breaking-open frame shows before the egg disappears
 
 const isFull = (n: NestStatus | null) => !!n && n.filled >= n.total && !n.hatched
 
@@ -81,14 +81,6 @@ export default function QuestsScreen() {
                   ? "This week's egg is laid. The next nest opens Monday."
                   : 'Complete a quest this week to lay an egg.'}
           </p>
-        )}
-        {isFull(nests) && !hatchOpen && (
-          <button
-            onClick={() => setHatchOpen(true)}
-            className="mx-auto mt-3 block rounded-full bg-gradient-to-b from-rare to-[#e39a1c] px-5 py-2 text-sm font-extrabold tracking-wide text-white shadow-sm active:brightness-95"
-          >
-            HATCH THE BIG EGG
-          </button>
         )}
       </section>
 
@@ -232,15 +224,26 @@ function Nest({ egg, drop, dim }: { egg: boolean; drop: boolean; dim: boolean })
   )
 }
 
+// Restarted on every tap with the Web Animations API (remounting the egg to restart a CSS animation flickered).
+const SHAKE_KEYFRAMES: Keyframe[] = [
+  { transform: 'none' },
+  { transform: 'translateX(-7px) rotate(-7deg)' },
+  { transform: 'translateX(6px) rotate(6deg)' },
+  { transform: 'translateX(-4px) rotate(-4deg)' },
+  { transform: 'translateX(2px) rotate(2deg)' },
+  { transform: 'none' },
+]
+
 // Every nest is full: a big egg over a white glow. Each tap shakes it and the cracks spread; the last tap breaks
 // it open and pays the bonus.
 function HatchOverlay({ onHatched, onClose }: { onHatched: (n: NestStatus) => void; onClose: () => void }) {
   const [taps, setTaps] = useState(0)
-  const [opened, setOpened] = useState(false)
+  const [shellGone, setShellGone] = useState(false)
   const [points, setPoints] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const shakeRef = useRef<HTMLDivElement>(null)
   const cracked = taps >= HATCH_TAPS
-  const frame = cracked ? (opened ? 6 : 5) : Math.min(4, Math.floor((taps * 5) / HATCH_TAPS))
+  const frame = cracked ? (shellGone ? -1 : 5) : Math.min(4, Math.floor((taps * 5) / HATCH_TAPS))
 
   async function hatch() {
     setError(null)
@@ -255,9 +258,10 @@ function HatchOverlay({ onHatched, onClose }: { onHatched: (n: NestStatus) => vo
 
   function onTap() {
     if (cracked) return
+    shakeRef.current?.animate(SHAKE_KEYFRAMES, { duration: 350, easing: 'ease-in-out' })
     setTaps(taps + 1)
     if (taps + 1 < HATCH_TAPS) return
-    setTimeout(() => setOpened(true), CRACK_MS)
+    setTimeout(() => setShellGone(true), CRACK_MS)
     void hatch()
   }
 
@@ -273,10 +277,10 @@ function HatchOverlay({ onHatched, onClose }: { onHatched: (n: NestStatus) => vo
 
       <div className="relative flex h-full flex-col items-center justify-center gap-8 px-6 text-center">
         <div className="text-white [text-shadow:0_2px_6px_rgb(0_0_0/0.6)]">
-          <p className="text-2xl font-extrabold">{points != null ? 'It hatched!' : 'Every nest is full!'}</p>
-          <p className="mt-1 text-sm font-semibold text-white/85">
-            {points != null ? 'Bonus points for filling every nest' : cracked ? 'Cracking…' : 'Tap the egg to hatch it'}
-          </p>
+          <p className="text-2xl font-extrabold">{points != null ? 'It hatched!' : 'Do you hear something...?'}</p>
+          {points == null && (
+            <p className="mt-1 text-sm font-semibold text-white/85">{cracked ? 'Cracking…' : 'Tap the egg to hatch it'}</p>
+          )}
         </div>
 
         <button
@@ -285,17 +289,21 @@ function HatchOverlay({ onHatched, onClose }: { onHatched: (n: NestStatus) => vo
           aria-label={cracked ? 'Egg cracked' : 'Tap to crack the egg'}
           className="relative animate-big-egg-in touch-manipulation select-none"
         >
-          <div key={taps} className={`origin-bottom ${taps === 0 ? 'animate-egg-wobble' : cracked ? '' : 'animate-egg-shake'}`}>
-            <img
-              src={EGG_FRAMES[frame]}
-              alt=""
-              draggable={false}
-              className={`w-[209px] ${PIXELATED} drop-shadow-[0_6px_12px_rgb(0_0_0/0.35)]`}
-            />
+          {/* every frame stays mounted and stacked, so swapping frames never shows an undecoded (blank) image */}
+          <div ref={shakeRef} className={`grid origin-bottom ${taps === 0 ? 'animate-egg-wobble' : ''}`}>
+            {EGG_FRAMES.map((src, i) => (
+              <img
+                key={src}
+                src={src}
+                alt=""
+                draggable={false}
+                className={`col-start-1 row-start-1 w-[209px] ${PIXELATED} drop-shadow-[0_6px_12px_rgb(0_0_0/0.35)] ${i === frame ? '' : 'invisible'}`}
+              />
+            ))}
           </div>
           {points != null && (
-            <div className="absolute inset-x-0 top-[12%] animate-points-rise text-rare [text-shadow:0_0_2px_white,0_0_12px_white,0_3px_0_rgb(0_0_0/0.25)]">
-              <div className="text-6xl font-black tabular-nums">+{points}</div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center animate-points-rise text-rare [text-shadow:0_0_2px_white,0_0_12px_white,0_3px_0_rgb(0_0_0/0.25)]">
+              <div className="text-6xl font-black tabular-nums">{points}</div>
               <div className="text-lg font-extrabold tracking-widest">XP</div>
             </div>
           )}
@@ -314,17 +322,13 @@ function HatchOverlay({ onHatched, onClose }: { onHatched: (n: NestStatus) => vo
                 </button>
               </div>
             </div>
-          ) : points != null ? (
-            <button
-              onClick={onClose}
-              className="rounded-full bg-gradient-to-b from-rare to-[#e39a1c] px-8 py-3 font-extrabold tracking-wide text-white shadow-lg active:brightness-95"
-            >
-              COLLECT
-            </button>
           ) : (
-            !cracked && (
-              <button onClick={onClose} className="text-sm font-semibold text-white/70">
-                Later
+            points != null && (
+              <button
+                onClick={onClose}
+                className="rounded-full bg-gradient-to-b from-rare to-[#e39a1c] px-8 py-3 font-extrabold tracking-wide text-white shadow-lg active:brightness-95"
+              >
+                COLLECT
               </button>
             )
           )}

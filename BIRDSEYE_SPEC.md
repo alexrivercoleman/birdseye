@@ -153,7 +153,9 @@ Provide a SQL function `are_friends(a uuid, b uuid) returns boolean`.
 
 **ebird_cache** — `cache_key` PK, `payload` jsonb, `fetched_at`. Key example: `recent:{lat2}:{lng2}` with coords rounded to 0.1°. TTL 24 h.
 
-**trails** — `id`, `osm_id` unique, `name`, `geom geography(LineString, 4326)`, `fetched_bbox` text.
+**trails** — `id`, `osm_id` unique, `name`, `geom geography(LineString, 4326)`, `fetched_bbox` text, `group_id` bigint (one named trail = every OSM way in its group; the smallest `osm_id`).
+
+**trail_fetch_cells** — `cell` text PK (`"lat_index:lng_index"` on a 0.05° grid), `fetched_at`. Overpass fetches cached per cell, including cells with no trails.
 
 ### Storage buckets
 `audio-chunks` (private), `clips` (private, signed URLs), `spectrograms` (private, signed URLs), `photos` (private, signed URLs), `static-maps` (private).
@@ -257,7 +259,7 @@ Weekly (last 7 days) sum of `points_ledger`. `local` = ledger entries within 25 
 `GET /map/community?bbox=minLng,minLat,maxLng,maxLat` →
 ```json
 {
-  "trails": [{ "trail_id": "...", "name": "...", "geometry": GeoJSON LineString, "species_total": 23 }],
+  "trails": [{ "trail_id": "<group_id>", "name": "...", "geometry": GeoJSON MultiLineString, "species_total": 23 }],
   "bounties": [ ... as above ... ],
   "anomalies": [{ "species_code": "...", "common_name": "...", "center": {...}, "radius_m": 300,
                   "detected_at": "...", "reason": "...", "photo_confirmed": false }],
@@ -265,7 +267,7 @@ Weekly (last 7 days) sum of `points_ledger`. `local` = ledger entries within 25 
 }
 ```
 
-`GET /trails/{trail_id}/species` → `{ name, top_species: [{ species_code, common_name, rarity_tier, walks, users, last_heard_at }] }`
+`GET /trails/{trail_id}/species` → `{ name, top_species: [{ species_code, common_name, rarity_tier, walks, users, last_heard_at }] }` (`trail_id` is the group id from the map; 404 if unknown; top 15)
 
 ---
 ## 7. Feature logic
@@ -421,9 +423,10 @@ async def vision_json(system: str, image_bytes: bytes, mime: str, user: str) -> 
 
 ### 7.13 Community map + trails — Workstream C (API), A (UI)
 
-- On `GET /map/community`, if the bbox isn't cached in `trails`, fetch from Overpass: named ways with `highway` in (`path`, `footway`, `track`, `bridleway`) plus `route=hiking` relations. Store geometry. (Prefetch the Atlanta demo area in the seed script; public Overpass is rate-limited.)
-- Trail species = detections within **75 m** of the trail geometry (`ST_DWithin`) in the last 90 days, grouped by species, ranked by distinct walks. Only return trails with ≥ 1 detection by default, so the map isn't cluttered.
-- UI: trails drawn as lines, thickness/color by species total; tapping one opens a bottom sheet with top species (tier badges). Plus bounty circles, anomaly markers (fuzzed like bounties), and a detection heatmap toggle.
+- On `GET /map/community`, if any 0.05° cell of the bbox isn't in `trail_fetch_cells` (and ≤ 6 are missing), fetch from Overpass: named ways with `highway` in (`path`, `footway`, `track`, `bridleway`, `cycleway`), minus `footway=sidewalk` and `foot=no`, plus the member ways of `route=hiking` relations. `cycleway` is there because multi-use trails (BeltLine, PATH) are tagged that way. Same-name ways (ignoring case) within ~50 m are grouped into one trail (`group_id`). Public Overpass 504s often: a live request tries once and then skips Overpass for 60 s; `api/scripts/prefetch_trails.py` prefetches the demo areas with retries.
+- Trail species = detections within **75 m** of any way in the trail group (`ST_DWithin`) in the last 90 days from complete walks, excluding anomalies, grouped by species, ranked by distinct walks. Every trail in the bbox is returned (up to 300, most species first); ones with 0 species are drawn thin and grey so people can see where nobody has listened yet.
+- Heat = the same detections, weight = distinct (walk, species) per ~250 m cell. Anomalies (one per walk + species, last 90 days) are shown fuzzed like bounties, with a fuzz seeded by the detection id so repeated requests can't be averaged back to the true spot.
+- UI (`web/src/components/CommunityMap.tsx`, on the idle Walk screen behind the Start Walk button): trails drawn as lines, thickness/color by species total; tapping one opens a bottom sheet with top species (tier badges). Plus bounty circles, anomaly circles (fuzzed like bounties), and a detection heatmap toggle. Outside mock mode, the sample trails in `web/src/api/sampleMap.ts` are drawn on top of the API's trails for demos (`VITE_MAP_SAMPLES=false` turns them off).
 
 ---
 
@@ -437,8 +440,8 @@ Mobile-first, one-handed, big touch targets, bottom tab bar: **Feed · Walk · Q
 4. **Photo confirm sheet** — photo + suggestion chips.
 5. **Recap** — stats header; Mapbox map with route and pins (distinct icon for heard vs. photographed vs. both; color by tier; tapping a pin scrolls to the species); species list sorted rare → common with play button + spectrogram; photo gallery; AI recap text; quest progress; bounties claimed/created; chirp + comments.
 6. **Feed** (C) — cards: user, area label, stats, static map (if precise), top 3 species, first photo, recap text snippet, chirp/comment counts.
-7. **Community Map** (A) — see §7.13.
-8. **Quests** (C) — 5 monthly nests on top (the week's first claimed quest lays an egg; footprints walk to the next nest; pixel-art sprites in `web/src/assets/pixel/`). Filling all 5 brings up a big egg over a white glow that the user taps until it cracks for +500; quest cards with progress bars and XP; completed ones are covered by a CLAIM REWARD button; bounties near you; leaderboards (Local / Friends toggle).
+7. **Community Map** (C, taken over from A) — lives on the idle Walk screen for now, see §7.13.
+8. **Quests** (C) — 5 monthly nests on top (the week's first claimed quest lays an egg; footprints walk to the next nest; pixel-art sprites in `web/src/assets/pixel/`). Filling all 5 brings up a big egg over a white glow that the user taps until it cracks for 500 XP; quest cards with progress bars and XP; completed ones are covered by a CLAIM REWARD button; bounties near you; leaderboards (Local / Friends toggle).
 9. **Profile** (C) — stats, life list count, recent walks, follow button, **personal QR code** (encodes `https://<app-domain>/u/{username}`), and **"Scan QR"** using an in-app camera scanner (`html5-qrcode` or `jsQR`), since scanning with the iOS Camera app would open Safari instead of the PWA. `/u/{username}` route also works in a browser.
 10. **User search** (C) — username prefix search.
 

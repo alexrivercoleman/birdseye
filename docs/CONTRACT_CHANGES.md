@@ -16,6 +16,26 @@ Format:
 
 <!-- newest first -->
 
+## 2026-09-26 — Community map is real: trail groups, MultiLineString trails, Overpass cache (C, Alexandros)
+- What changed:
+  - §5: `trails.group_id` bigint (every OSM way of one named trail shares it: the group's smallest `osm_id`). New
+    table `trail_fetch_cells` (`cell` text PK, `fetched_at`), the per-0.05°-cell Overpass cache, RLS on, API only.
+    Migration `20260926180000_trail_groups.sql`.
+  - §6: `GET /map/community` trails are one entry per trail group: `trail_id` is the group id and `geometry` is a
+    GeoJSON **MultiLineString** (was LineString). `GET /trails/{trail_id}/species` takes that group id (404 if
+    unknown) and returns up to 15 species. Bad `bbox` → 422.
+  - §7.13: every trail in the bbox is returned, including ones with `species_total: 0` (was: only trails with ≥ 1
+    detection); the map draws those grey. Overpass also fetches named `highway=cycleway` (the BeltLine and PATH
+    trails are tagged that way), minus `foot=no`. Anomalies are left out of trail counts and heat; heat weight = distinct (walk, species) per cell.
+    Bounties on the map now come from the `bounties` table (empty until §7.6 lands), not the stub.
+  - §8: the community map UI is built by C (was A) and lives on the idle Walk screen, behind Start Walk. The web
+    app draws 6 sample trails (`web/src/api/sampleMap.ts`, ids `sample-*`, species sheets answered client-side) on
+    top of the API's trails, so the deployed demo isn't empty; set `VITE_MAP_SAMPLES=false` to hide them.
+- Why: OSM splits one trail into dozens of ways, so per-way trails gave 50 m "trails" with a handful of birds each.
+- Who needs to update what: **apply the migration before deploying the API** (the map queries read `group_id`),
+  then run `cd api && python scripts/prefetch_trails.py` once to cache the demo areas. A: `WalkScreen`'s idle view
+  now renders the map; the active walk view is unchanged.
+
 ## 2026-09-26 — Big egg: hatch a full month of nests for 500 points (C, Alexandros)
 - What changed:
   - §5: new table `nest_hatches` (`user_id`, `month` date, `created_at`, PK(`user_id`, `month`)), RLS on, API only.
@@ -23,7 +43,7 @@ Format:
   - §6: `NestStatus` gains `hatched: bool` (this month's big egg is hatched). New `POST /quests/nests/hatch` →
     `{ points_awarded, nests }`: 409 unless all 5 of this month's nests are full and it isn't hatched yet. Pays 500.
   - §8: Quests screen uses the pixel-art nest/egg sprites. When the last nest fills, a big egg appears over a white
-    glow. Each tap shakes it and spreads the cracks; the 10th tap breaks it open and shows +500.
+    glow. Each tap shakes it and spreads the cracks; the 10th tap breaks it open and shows 500 XP.
 - Why: reward for filling every nest in a month.
 - Who needs to update what: **apply the migration before deploying the API**, since `GET /quests/nests` now reads
   `nest_hatches`. The web mock starts at 4/5 nests, so the first claim triggers the big egg.
