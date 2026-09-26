@@ -1,0 +1,27 @@
+services:
+  api:
+    build: ./api
+    env_file: ./api/.env
+    restart: unless-stopped
+    volumes:
+      - audio-tmp:/tmp/birdseye
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+volumes:
+  audio-tmp:
+  caddy-data:
+  caddy-config:

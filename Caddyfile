@@ -1,0 +1,7 @@
+# API_DOMAIN e.g. api.203-0-113-10.sslip.io (set in a root .env next to docker-compose.yml)
+{$API_DOMAIN} {
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy api:8000
+}

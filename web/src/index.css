@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+
+/* Nature palette (§8): deep greens, warm off-white, one bright accent for rare birds. */
+@theme {
+  --color-forest: #1f3d2b;
+  --color-moss: #3f6b4a;
+  --color-fern: #7fa37a;
+  --color-paper: #f7f3ea;
+  --color-bark: #3b2f25;
+  --color-rare: #f2b632;
+  --color-uncommon: #3b82c4;
+  --color-common: #8a8f8a;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-bark);
+  -webkit-tap-highlight-color: transparent;
+}

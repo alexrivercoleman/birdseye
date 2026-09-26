@@ -1,0 +1,8 @@
+# Audio/ML deps (Workstream B). Kept separate so the stub API runs without them.
+# birdnetlib also needs a TFLite runtime: tflite-runtime (Linux) or tensorflow. Verify against birdnetlib docs.
+-r requirements.txt
+birdnetlib
+librosa
+resampy
+numpy
+matplotlib
