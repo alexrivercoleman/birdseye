@@ -105,8 +105,11 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   const [gps, setGps] = useState<GeoStatus>('waiting')
   const [distance, setDistance] = useState(0)
   const [species, setSpecies] = useState<LiveSpecies[]>([])
+<<<<<<< HEAD
   const [seen, setSeen] = useState<{ code: string; name: string; count: number }[]>([])
   const [seenError, setSeenError] = useState(false)
+=======
+>>>>>>> parent of 9b897cb (Merge pull request #9 from alexrivercoleman/birds-seen-streamline)
   const [pending, setPending] = useState({ chunks: 0, photos: 0, total: 0 })
   const [ending, setEnding] = useState<string | null>(null)
   const [confirmPhotoId, setConfirmPhotoId] = useState<string | null>(null)
@@ -219,6 +222,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
     }
   }, [walk.walkId])
 
+<<<<<<< HEAD
   // Read saved photos independently of the identification sheet so reloads and
   // photos finishing after the sheet closes still update the sightings list.
   useEffect(() => {
@@ -251,6 +255,8 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
     return () => { alive = false; clearTimeout(timer) }
   }, [walk.walkId, confirmPhotoId])
 
+=======
+>>>>>>> parent of 9b897cb (Merge pull request #9 from alexrivercoleman/birds-seen-streamline)
   async function takePhoto(file: File | undefined) {
     if (!file) return
     const fix = tracker.current?.last ?? tracker.current?.lastAny // indoors, any fix beats none
@@ -292,7 +298,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   }
 
   return (
-    <div className="min-h-full bg-[#0f1f16] px-5 pb-28 pt-4 text-paper">
+    <div className="min-h-full bg-[#0f1f16] px-5 pb-8 pt-4 text-paper">
       <div className="flex flex-wrap gap-2 text-xs">
         <button
           onClick={() => void recorder.current?.resume()}
@@ -312,7 +318,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
       <div className="mt-6 grid grid-cols-3 text-center">
         <Stat label="Time" value={formatDuration(elapsed)} />
         <Stat label="Distance" value={formatDistance(distance)} />
-        <Stat label="Species" value={String(new Set([...species.map((s) => s.code), ...seen.map((s) => s.code)]).size)} />
+        <Stat label="Species" value={String(species.length)} />
       </div>
 
       {pending.total > 3 && (
@@ -342,6 +348,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
         ))}
       </ul>
 
+<<<<<<< HEAD
       <h2 className="mt-6 text-sm font-semibold text-paper/70">Birds seen</h2>
       {seenError && <p role="status" className="mt-2 text-sm text-rare">Couldn’t load birds seen. Retrying…</p>}
       <ul className="mt-2 space-y-2">
@@ -354,6 +361,8 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
         ))}
       </ul>
 
+=======
+>>>>>>> parent of 9b897cb (Merge pull request #9 from alexrivercoleman/birds-seen-streamline)
       <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] flex gap-3 px-5 pb-3">
         <label className="flex flex-1 cursor-pointer items-center justify-center rounded-2xl bg-white/10 py-4 font-semibold">
           📷 Photo

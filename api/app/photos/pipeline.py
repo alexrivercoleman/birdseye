@@ -44,13 +44,11 @@ def process_photo(photo_id: str, image: bytes, mime: str) -> None:
         conn.execute(
             """
             update photos set suggestions = %s,
-                   species_code = case when status = 'processing' then %s else species_code end,
                    status = case when status = 'processing' then %s else status end,
                    storage_path = case when %s then storage_path end
              where id = %s
             """,
-            (Jsonb(suggestions), suggestions[0]["species_code"] if suggestions else None,
-             "confirmed" if suggestions else "unidentified", stored, photo_id),
+            (Jsonb(suggestions), "needs_confirmation" if suggestions else "unidentified", stored, photo_id),
         )
 
 

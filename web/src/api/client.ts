@@ -59,7 +59,7 @@ export const api = {
   getPhoto: (photoId: string) =>
     USE_MOCKS
       ? mock<PhotoDetail>({
-          photo_id: photoId, status: 'confirmed', species_code: 'carwre', url: null,
+          photo_id: photoId, status: 'needs_confirmation', species_code: null, url: null,
           suggestions: [
             { species_code: 'carwre', common_name: 'Carolina Wren', confidence: 0.82 },
             { species_code: 'norcar', common_name: 'Northern Cardinal', confidence: 0.11 },
