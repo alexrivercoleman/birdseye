@@ -105,6 +105,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   const [gps, setGps] = useState<GeoStatus>('waiting')
   const [distance, setDistance] = useState(0)
   const [species, setSpecies] = useState<LiveSpecies[]>([])
+  const [seen, setSeen] = useState<{ code: string; name: string; count: number }[]>([])
   const [pending, setPending] = useState({ chunks: 0, photos: 0, total: 0 })
   const [ending, setEnding] = useState<string | null>(null)
   const [confirmPhotoId, setConfirmPhotoId] = useState<string | null>(null)
@@ -217,6 +218,45 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
     }
   }, [walk.walkId])
 
+  // Read saved photos independently of the identification sheet so reloads and
+  // photos finishing after the sheet closes still update the sightings list.
+  useEffect(() => {
+    if (USE_MOCKS) {
+      if (confirmPhotoId) {
+        setSeen((birds) => {
+          const bird = birds.find((s) => s.code === 'carwre')
+          return bird
+            ? birds.map((s) => s.code === 'carwre' ? { ...s, count: s.count + 1 } : s)
+            : [...birds, { code: 'carwre', name: 'Carolina Wren', count: 1 }]
+        })
+      }
+      return
+    }
+    let alive = true
+    const load = async () => {
+      const { data, error } = await supabase
+        .from('photos')
+        .select('species_code, suggestions')
+        .eq('walk_id', walk.walkId)
+        .eq('status', 'confirmed')
+      if (!alive || error) return
+      const by = new Map<string, { code: string; name: string; count: number }>()
+      for (const photo of data ?? []) {
+        if (!photo.species_code) continue
+        const match = photo.suggestions?.find((s: { species_code: string; common_name: string }) => s.species_code === photo.species_code)
+        const bird = by.get(photo.species_code) ?? {
+          code: photo.species_code, name: match?.common_name ?? photo.species_code, count: 0,
+        }
+        bird.count++
+        by.set(bird.code, bird)
+      }
+      setSeen([...by.values()].sort((a, b) => a.name.localeCompare(b.name)))
+    }
+    void load()
+    const poll = window.setInterval(load, 1500)
+    return () => { alive = false; clearInterval(poll) }
+  }, [walk.walkId, confirmPhotoId])
+
   async function takePhoto(file: File | undefined) {
     if (!file) return
     const fix = tracker.current?.last ?? tracker.current?.lastAny // indoors, any fix beats none
@@ -258,7 +298,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   }
 
   return (
-    <div className="min-h-full bg-[#0f1f16] px-5 pb-8 pt-4 text-paper">
+    <div className="min-h-full bg-[#0f1f16] px-5 pb-28 pt-4 text-paper">
       <div className="flex flex-wrap gap-2 text-xs">
         <button
           onClick={() => void recorder.current?.resume()}
@@ -278,7 +318,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
       <div className="mt-6 grid grid-cols-3 text-center">
         <Stat label="Time" value={formatDuration(elapsed)} />
         <Stat label="Distance" value={formatDistance(distance)} />
-        <Stat label="Species" value={String(species.length)} />
+        <Stat label="Species" value={String(new Set([...species.map((s) => s.code), ...seen.map((s) => s.code)]).size)} />
       </div>
 
       {pending.total > 3 && (
@@ -304,6 +344,17 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
             <span className="text-sm text-paper/60">
               ×{s.count} · {Math.round(s.best * 100)}%
             </span>
+          </li>
+        ))}
+      </ul>
+
+      <h2 className="mt-6 text-sm font-semibold text-paper/70">Birds seen</h2>
+      <ul className="mt-2 space-y-2">
+        {seen.length === 0 && <li className="py-8 text-center text-paper/50">Take a photo to record a bird you’ve seen.</li>}
+        {seen.map((s) => (
+          <li key={s.code} className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
+            <span className="font-medium">{s.name}</span>
+            <span className="text-sm text-paper/60">×{s.count}</span>
           </li>
         ))}
       </ul>

@@ -205,7 +205,8 @@ def test_photo_failure_never_uses_heard_species(monkeypatch, failure):
     pipeline.process_photo("photo", b"image", "image/jpeg")
     saved = conn.execute.call_args.args[1]
     assert saved[0].obj == []
-    assert saved[1] == "unidentified"
+    assert saved[1] is None
+    assert saved[2] == "unidentified"
 
 
 def test_photo_processed_without_any_audio_detections(monkeypatch):
@@ -224,4 +225,5 @@ def test_photo_processed_without_any_audio_detections(monkeypatch):
     identify.assert_called_once_with(b"image", "image/jpeg", lat=33.75, lng=-84.39, captured_at=ON)
     saved = conn.execute.call_args.args[1]
     assert saved[0].obj == CANDIDATES
-    assert saved[1] == "needs_confirmation"
+    assert saved[1] == CANDIDATES[0]["species_code"]
+    assert saved[2] == "confirmed"
