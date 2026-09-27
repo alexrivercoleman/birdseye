@@ -86,6 +86,21 @@ def upload_chunk(
     return s.ChunkCreated(chunk_id=str(row["id"]))
 
 
+@router.get("/walks/{walk_id}/seen", response_model=list[s.SeenSpecies])
+def birds_seen(walk_id: UUID, user: CurrentUser = Depends(get_current_user)):
+    """Read saved sightings through the API; photos has no browser SELECT policy."""
+    with db.connect() as conn:
+        _require_owner(conn, walk_id, user)
+        rows = conn.execute(
+            "select p.species_code code, coalesce(t.common_name, p.species_code) name, count(*) count"
+            " from photos p left join ebird_taxonomy t on t.species_code = p.species_code"
+            " where p.walk_id = %s and p.status = 'confirmed' and p.species_code is not null"
+            " group by p.species_code, t.common_name order by name",
+            (walk_id,),
+        ).fetchall()
+    return [s.SeenSpecies(**row) for row in rows]
+
+
 @router.post("/walks/{walk_id}/photos", response_model=s.PhotoCreated)
 def upload_photo(
     walk_id: UUID,
