@@ -10,10 +10,9 @@ const button = 'w-full rounded-xl bg-forest py-3.5 text-base font-semibold text-
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-col justify-center px-6 pt-[env(safe-area-inset-top)]">
-      <h1>
+      <h1 className="mb-8">
         <img src={wordmark} alt="Birdseye" className="h-24 w-auto" />
       </h1>
-      <p className="mb-8 mt-2 text-bark/70">Hear every bird on your walk</p>
       <h2 className="text-xl font-semibold">{title}</h2>
       <p className="mb-5 text-sm text-bark/60">{subtitle}</p>
       {children}
