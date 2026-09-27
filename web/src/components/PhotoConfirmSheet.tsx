@@ -3,8 +3,13 @@ import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { PhotoDetail } from '../api/types'
 
-export function PhotoConfirmSheet({ photoId, onClose }: { photoId: string; onClose: () => void }) {
+export function PhotoConfirmSheet({ photoId, onClose, onConfirmed }: {
+  photoId: string
+  onClose: () => void
+  onConfirmed?: (photo: PhotoDetail) => void
+}) {
   const [photo, setPhoto] = useState<PhotoDetail | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -29,11 +34,15 @@ export function PhotoConfirmSheet({ photoId, onClose }: { photoId: string; onClo
 
   async function choose(code: string | null) {
     setBusy(true)
+    setError(null)
     try {
       await api.confirmPhoto(photoId, code)
+      if (photo) onConfirmed?.({ ...photo, species_code: code, status: code ? 'confirmed' : 'unidentified' })
+      onClose()
+    } catch {
+      setError("Couldn’t save this sighting. Please try again.")
     } finally {
       setBusy(false)
-      onClose()
     }
   }
 
@@ -44,6 +53,7 @@ export function PhotoConfirmSheet({ photoId, onClose }: { photoId: string; onClo
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-semibold">Photo identification</h3>
+        {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
         {photo?.url && <img src={photo.url} alt="" className="mb-4 max-h-56 w-full rounded-2xl object-cover" />}
         {!photo || photo.status === 'processing' ? (
           <p className="py-6 text-center text-bark/60">Identifying the bird in your photo…</p>

@@ -3,6 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import { api, USE_MOCKS } from '../api/client'
+import type { PhotoDetail, SeenPhoto } from '../api/types'
 import parrotClosedImg from '../assets/pixel/parrot-closed.png'
 import parrotOpenImg from '../assets/pixel/parrot-open.png'
 import startWalkImg from '../assets/pixel/start-walk.png'
@@ -105,6 +106,9 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   const [gps, setGps] = useState<GeoStatus>('waiting')
   const [distance, setDistance] = useState(0)
   const [species, setSpecies] = useState<LiveSpecies[]>([])
+  const [sightingsError, setSightingsError] = useState<string | null>(null)
+  const sightingRevision = useRef(0)
+  const [seenPhotos, setSeenPhotos] = useState<SeenPhoto[]>([])
   const [pending, setPending] = useState({ chunks: 0, photos: 0, total: 0 })
   const [ending, setEnding] = useState<string | null>(null)
   const [confirmPhotoId, setConfirmPhotoId] = useState<string | null>(null)
@@ -217,6 +221,42 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
     }
   }, [walk.walkId])
 
+  // Restore confirmed sightings on resume and pick up photos processed while away.
+  useEffect(() => {
+    if (USE_MOCKS) return
+    let alive = true
+    const load = async () => {
+      const revision = sightingRevision.current
+      try {
+        const data = await api.getSightings(walk.walkId)
+        if (alive && revision === sightingRevision.current) {
+          setSeenPhotos(data)
+          setSightingsError(null)
+        }
+      } catch {
+        if (alive) setSightingsError('Couldn’t refresh birds seen. Retrying…')
+      }
+    }
+    void load()
+    const poll = window.setInterval(load, 5000)
+    return () => {
+      alive = false
+      clearInterval(poll)
+    }
+  }, [walk.walkId])
+
+  function photoConfirmed(photo: PhotoDetail) {
+    sightingRevision.current++
+    setSeenPhotos((previous) => {
+      const remaining = previous.filter((p) => p.id !== photo.photo_id)
+      if (!photo.species_code) return remaining
+      return [...remaining, {
+        id: photo.photo_id, species_code: photo.species_code,
+        suggestions: photo.suggestions, captured_at: new Date().toISOString(),
+      }]
+    })
+  }
+
   async function takePhoto(file: File | undefined) {
     if (!file) return
     const fix = tracker.current?.last ?? tracker.current?.lastAny // indoors, any fix beats none
@@ -251,6 +291,19 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
     navigate(`/walks/${walk.walkId}`, { state: { justFinished: true } }) // the walk summary, with Share to Instagram
   }
 
+  const seenBySpecies = new Map<string, { code: string; name: string; count: number; lastAt: number }>()
+  for (const photo of seenPhotos) {
+    const bird = seenBySpecies.get(photo.species_code) ?? {
+      code: photo.species_code,
+      name: photo.suggestions.find((s) => s.species_code === photo.species_code)?.common_name ?? photo.species_code,
+      count: 0, lastAt: 0,
+    }
+    bird.count++
+    bird.lastAt = Math.max(bird.lastAt, Date.parse(photo.captured_at))
+    seenBySpecies.set(bird.code, bird)
+  }
+  const seenSpecies = [...seenBySpecies.values()].sort((a, b) => b.lastAt - a.lastAt)
+  const speciesCount = new Set([...species.map((s) => s.code), ...seenBySpecies.keys()]).size
   const elapsed = (now - Date.parse(walk.startedAt)) / 1000
   const micLabel: Record<MicStatus, string> = {
     starting: 'Mic starting…', recording: 'Listening', interrupted: 'Mic paused, tap to resume',
@@ -258,7 +311,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   }
 
   return (
-    <div className="min-h-full bg-[#0f1f16] px-5 pb-8 pt-4 text-paper">
+    <div className="min-h-full bg-[#0f1f16] px-5 pb-28 pt-4 text-paper">
       <div className="flex flex-wrap gap-2 text-xs">
         <button
           onClick={() => void recorder.current?.resume()}
@@ -278,7 +331,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
       <div className="mt-6 grid grid-cols-3 text-center">
         <Stat label="Time" value={formatDuration(elapsed)} />
         <Stat label="Distance" value={formatDistance(distance)} />
-        <Stat label="Species" value={String(species.length)} />
+        <Stat label="Species" value={String(speciesCount)} />
       </div>
 
       {pending.total > 3 && (
@@ -308,6 +361,20 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
         ))}
       </ul>
 
+      <h2 className="mt-6 text-sm font-semibold text-paper/70">Birds seen</h2>
+      {sightingsError && <p role="status" className="mt-2 text-sm text-rare">{sightingsError}</p>}
+      <ul className="mt-2 space-y-2" aria-live="polite">
+        {seenSpecies.length === 0 && (
+          <li className="py-8 text-center text-paper/50">Take a photo and confirm the bird to add it here.</li>
+        )}
+        {seenSpecies.map((s) => (
+          <li key={s.code} className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 px-4 py-3">
+            <span className="font-medium">{s.name}</span>
+            <span className="shrink-0 text-sm text-paper/60">×{s.count} · 📷</span>
+          </li>
+        ))}
+      </ul>
+
       <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] flex gap-3 px-5 pb-3">
         <label className="flex flex-1 cursor-pointer items-center justify-center rounded-2xl bg-white/10 py-4 font-semibold">
           📷 Photo
@@ -331,7 +398,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
         </button>
       </div>
 
-      {confirmPhotoId && <PhotoConfirmSheet photoId={confirmPhotoId} onClose={() => setConfirmPhotoId(null)} />}
+      {confirmPhotoId && <PhotoConfirmSheet photoId={confirmPhotoId} onConfirmed={photoConfirmed} onClose={() => setConfirmPhotoId(null)} />}
     </div>
   )
 }

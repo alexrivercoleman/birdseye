@@ -9,6 +9,7 @@ import type {
   NestHatched,
   NestStatus,
   PhotoDetail,
+  SeenPhoto,
   QuestClaimed,
   Recap,
   TrackPoint,
@@ -46,6 +47,9 @@ const post = <T>(path: string, body?: unknown) =>
 const mock = <T>(value: T) => new Promise<T>((r) => setTimeout(() => r(value), 150))
 
 export const api = {
+  getSightings: (walkId: string) =>
+    USE_MOCKS ? mock<SeenPhoto[]>([]) : request<SeenPhoto[]>(`/walks/${walkId}/sightings`),
+
   // Walk lifecycle
   createWalk: () => (USE_MOCKS ? mock({ walk_id: crypto.randomUUID() }) : post<{ walk_id: string }>('/walks')),
   postTrack: (walkId: string, points: TrackPoint[]) =>

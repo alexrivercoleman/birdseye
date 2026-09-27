@@ -167,3 +167,5 @@ export type TrailSpecies = {
     last_heard_at: string | null
   }[]
 }
+
+export type SeenPhoto = { id: string; species_code: string; suggestions: PhotoDetail['suggestions']; captured_at: string }

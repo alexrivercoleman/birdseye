@@ -60,6 +60,13 @@ class PhotoSuggestion(BaseModel):
     confidence: float | None = None
 
 
+class SeenPhoto(BaseModel):
+    id: str
+    species_code: str
+    suggestions: list[PhotoSuggestion]
+    captured_at: datetime
+
+
 class PhotoDetail(BaseModel):
     """GET /photos/{photo_id} (owner only). Added 2026-09-25, see docs/CONTRACT_CHANGES.md."""
     photo_id: str

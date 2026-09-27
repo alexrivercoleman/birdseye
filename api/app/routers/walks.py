@@ -38,6 +38,18 @@ def create_walk(user: CurrentUser = Depends(get_current_user)):
     return s.WalkCreated(walk_id=str(row["id"]))
 
 
+@router.get("/walks/{walk_id}/sightings", response_model=list[s.SeenPhoto])
+def list_sightings(walk_id: UUID, user: CurrentUser = Depends(get_current_user)):
+    with db.connect() as conn:
+        _require_owner(conn, walk_id, user)
+        rows = conn.execute(
+            "select id, species_code, suggestions, captured_at from photos"
+            " where walk_id = %s and status = 'confirmed' and species_code is not null"
+            " order by captured_at desc", (walk_id,),
+        ).fetchall()
+    return [s.SeenPhoto(**{**row, "id": str(row["id"])}) for row in rows]
+
+
 @router.post("/walks/{walk_id}/track", response_model=s.Ok)
 def add_track(walk_id: UUID, body: s.TrackBatch, user: CurrentUser = Depends(get_current_user)):
     with db.connect() as conn:
