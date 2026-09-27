@@ -9,8 +9,8 @@ Photo uploads now run this backend sequence:
    filtered out. An unidentifiable photo produces no suggestions.
 3. `validation.rerank_candidates` checks the photo's own coordinates and capture
    date against eBird, then reorders the candidates.
-4. `pipeline.process_photo` saves the existing suggestion shape for the photo
-   confirmation screen. No database migration or frontend change is needed.
+4. `pipeline.process_photo` saves the suggestions and automatically confirms the top-ranked
+   species as a bird seen. Photos with no match remain unidentified.
 
 ## Enable it
 
@@ -37,7 +37,7 @@ docker compose logs -f api
 ```
 
 Upload a JPEG, PNG, WebP, or non-animated GIF through the app with frontend mocks
-disabled. Polling the photo endpoint should reach `needs_confirmation` with up to
+disabled. Polling the photo endpoint should reach `confirmed` with the top-ranked species saved and up to
 three species suggestions. Logs include the number of candidates matched by the
 eBird check. HEIC/HEIF must be converted before this vision call; unsupported
 formats or failed LLM requests leave the photo `unidentified`.

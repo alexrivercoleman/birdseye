@@ -5,7 +5,6 @@ import type { PhotoDetail } from '../api/types'
 
 export function PhotoConfirmSheet({ photoId, onClose }: { photoId: string; onClose: () => void }) {
   const [photo, setPhoto] = useState<PhotoDetail | null>(null)
-  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -27,15 +26,9 @@ export function PhotoConfirmSheet({ photoId, onClose }: { photoId: string; onClo
     }
   }, [photoId])
 
-  async function choose(code: string | null) {
-    setBusy(true)
-    try {
-      await api.confirmPhoto(photoId, code)
-    } finally {
-      setBusy(false)
-      onClose()
-    }
-  }
+  useEffect(() => {
+    if (photo?.status === 'confirmed') onClose()
+  }, [photo, onClose])
 
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={onClose}>
@@ -55,27 +48,7 @@ export function PhotoConfirmSheet({ photoId, onClose }: { photoId: string; onClo
             </button>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            <p className="w-full text-sm text-bark/60">Suggested matches for your photo</p>
-            {photo.suggestions.map((s) => (
-              <button
-                key={s.species_code}
-                disabled={busy}
-                onClick={() => choose(s.species_code)}
-                className="rounded-full bg-forest px-4 py-3 text-base font-medium text-paper"
-              >
-                {s.common_name}
-                {s.confidence != null && <span className="ml-1 opacity-60">{Math.round(s.confidence * 100)}%</span>}
-              </button>
-            ))}
-            <button
-              disabled={busy}
-              onClick={() => choose(null)}
-              className="rounded-full border border-bark/30 px-4 py-3 text-base font-medium"
-            >
-              Not sure
-            </button>
-          </div>
+          <p className="py-6 text-center text-bark/60">Identification complete.</p>
         )}
       </div>
     </div>
