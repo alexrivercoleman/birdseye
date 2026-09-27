@@ -69,6 +69,12 @@ class PhotoDetail(BaseModel):
     url: str | None = None
 
 
+class SeenSpecies(BaseModel):
+    code: str
+    name: str
+    count: int
+
+
 class FinishResponse(BaseModel):
     status: Literal["processing"] = "processing"
 

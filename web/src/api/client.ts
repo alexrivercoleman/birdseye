@@ -54,6 +54,8 @@ export const api = {
     USE_MOCKS ? mock({ chunk_id: crypto.randomUUID() }) : post<{ chunk_id: string }>(`/walks/${walkId}/chunks`, form),
   uploadPhoto: (walkId: string, form: FormData) =>
     USE_MOCKS ? mock({ photo_id: crypto.randomUUID() }) : post<{ photo_id: string }>(`/walks/${walkId}/photos`, form),
+  getBirdsSeen: (walkId: string) =>
+    request<{ code: string; name: string; count: number }[]>(`/walks/${walkId}/seen`),
   getPhoto: (photoId: string) =>
     USE_MOCKS
       ? mock<PhotoDetail>({

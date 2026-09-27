@@ -106,6 +106,7 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   const [distance, setDistance] = useState(0)
   const [species, setSpecies] = useState<LiveSpecies[]>([])
   const [seen, setSeen] = useState<{ code: string; name: string; count: number }[]>([])
+  const [seenError, setSeenError] = useState(false)
   const [pending, setPending] = useState({ chunks: 0, photos: 0, total: 0 })
   const [ending, setEnding] = useState<string | null>(null)
   const [confirmPhotoId, setConfirmPhotoId] = useState<string | null>(null)
@@ -233,28 +234,21 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
       return
     }
     let alive = true
+    let timer: number
     const load = async () => {
-      const { data, error } = await supabase
-        .from('photos')
-        .select('species_code, suggestions')
-        .eq('walk_id', walk.walkId)
-        .eq('status', 'confirmed')
-      if (!alive || error) return
-      const by = new Map<string, { code: string; name: string; count: number }>()
-      for (const photo of data ?? []) {
-        if (!photo.species_code) continue
-        const match = photo.suggestions?.find((s: { species_code: string; common_name: string }) => s.species_code === photo.species_code)
-        const bird = by.get(photo.species_code) ?? {
-          code: photo.species_code, name: match?.common_name ?? photo.species_code, count: 0,
-        }
-        bird.count++
-        by.set(bird.code, bird)
+      try {
+        const birds = await api.getBirdsSeen(walk.walkId)
+        if (!alive) return
+        setSeen(birds)
+        setSeenError(false)
+      } catch {
+        if (alive) setSeenError(true)
+      } finally {
+        if (alive) timer = window.setTimeout(load, 1500)
       }
-      setSeen([...by.values()].sort((a, b) => a.name.localeCompare(b.name)))
     }
     void load()
-    const poll = window.setInterval(load, 1500)
-    return () => { alive = false; clearInterval(poll) }
+    return () => { alive = false; clearTimeout(timer) }
   }, [walk.walkId, confirmPhotoId])
 
   async function takePhoto(file: File | undefined) {
@@ -349,8 +343,9 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
       </ul>
 
       <h2 className="mt-6 text-sm font-semibold text-paper/70">Birds seen</h2>
+      {seenError && <p role="status" className="mt-2 text-sm text-rare">Couldn’t load birds seen. Retrying…</p>}
       <ul className="mt-2 space-y-2">
-        {seen.length === 0 && <li className="py-8 text-center text-paper/50">Take a photo to record a bird you’ve seen.</li>}
+        {!seenError && seen.length === 0 && <li className="py-8 text-center text-paper/50">Take a photo to record a bird you’ve seen.</li>}
         {seen.map((s) => (
           <li key={s.code} className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
             <span className="font-medium">{s.name}</span>
