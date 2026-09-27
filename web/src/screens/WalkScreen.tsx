@@ -105,11 +105,6 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
   const [gps, setGps] = useState<GeoStatus>('waiting')
   const [distance, setDistance] = useState(0)
   const [species, setSpecies] = useState<LiveSpecies[]>([])
-<<<<<<< HEAD
-  const [seen, setSeen] = useState<{ code: string; name: string; count: number }[]>([])
-  const [seenError, setSeenError] = useState(false)
-=======
->>>>>>> parent of 9b897cb (Merge pull request #9 from alexrivercoleman/birds-seen-streamline)
   const [pending, setPending] = useState({ chunks: 0, photos: 0, total: 0 })
   const [ending, setEnding] = useState<string | null>(null)
   const [confirmPhotoId, setConfirmPhotoId] = useState<string | null>(null)
@@ -222,41 +217,6 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
     }
   }, [walk.walkId])
 
-<<<<<<< HEAD
-  // Read saved photos independently of the identification sheet so reloads and
-  // photos finishing after the sheet closes still update the sightings list.
-  useEffect(() => {
-    if (USE_MOCKS) {
-      if (confirmPhotoId) {
-        setSeen((birds) => {
-          const bird = birds.find((s) => s.code === 'carwre')
-          return bird
-            ? birds.map((s) => s.code === 'carwre' ? { ...s, count: s.count + 1 } : s)
-            : [...birds, { code: 'carwre', name: 'Carolina Wren', count: 1 }]
-        })
-      }
-      return
-    }
-    let alive = true
-    let timer: number
-    const load = async () => {
-      try {
-        const birds = await api.getBirdsSeen(walk.walkId)
-        if (!alive) return
-        setSeen(birds)
-        setSeenError(false)
-      } catch {
-        if (alive) setSeenError(true)
-      } finally {
-        if (alive) timer = window.setTimeout(load, 1500)
-      }
-    }
-    void load()
-    return () => { alive = false; clearTimeout(timer) }
-  }, [walk.walkId, confirmPhotoId])
-
-=======
->>>>>>> parent of 9b897cb (Merge pull request #9 from alexrivercoleman/birds-seen-streamline)
   async function takePhoto(file: File | undefined) {
     if (!file) return
     const fix = tracker.current?.last ?? tracker.current?.lastAny // indoors, any fix beats none
@@ -348,21 +308,6 @@ function ActiveWalkView({ walk, onDone }: { walk: ActiveWalk; onDone: () => void
         ))}
       </ul>
 
-<<<<<<< HEAD
-      <h2 className="mt-6 text-sm font-semibold text-paper/70">Birds seen</h2>
-      {seenError && <p role="status" className="mt-2 text-sm text-rare">Couldn’t load birds seen. Retrying…</p>}
-      <ul className="mt-2 space-y-2">
-        {!seenError && seen.length === 0 && <li className="py-8 text-center text-paper/50">Take a photo to record a bird you’ve seen.</li>}
-        {seen.map((s) => (
-          <li key={s.code} className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
-            <span className="font-medium">{s.name}</span>
-            <span className="text-sm text-paper/60">×{s.count}</span>
-          </li>
-        ))}
-      </ul>
-
-=======
->>>>>>> parent of 9b897cb (Merge pull request #9 from alexrivercoleman/birds-seen-streamline)
       <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] flex gap-3 px-5 pb-3">
         <label className="flex flex-1 cursor-pointer items-center justify-center rounded-2xl bg-white/10 py-4 font-semibold">
           📷 Photo
