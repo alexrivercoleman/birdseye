@@ -135,7 +135,7 @@ export function ShareStorySheet({ recap, onClose }: { recap: Recap; onClose: () 
             <p className="text-center text-xs text-paper/70">
               {copied
                 ? 'Open Instagram, add a photo to your story, then tap Aa and paste.'
-                : 'Paste it onto your own story photo, like Strava.'}
+                : 'Paste it onto your own story photo.'}
             </p>
           </>
         )}

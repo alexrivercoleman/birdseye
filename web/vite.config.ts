@@ -20,7 +20,7 @@ export default defineConfig({
       manifest: {
         name: 'Birdseye',
         short_name: 'Birdseye',
-        description: 'Strava for birding',
+        description: 'Hear every bird on your walk',
         display: 'standalone',
         start_url: '/',
         background_color: '#f7f3ea',
